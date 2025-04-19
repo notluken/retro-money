@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 2.0 (1987) Expense Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/excel-retro.css') }}">
+</head>
+<body>
+    <div class="excel-container">
+        <div class="excel-header">
+            <div class="excel-title">Microsoft Excel 2.0</div>
+            <div class="excel-menubar">
+                <div class="menu-item">File</div>
+                <div class="menu-item">Edit</div>
+                <div class="menu-item">Data</div>
+                <div class="menu-item">Options</div>
+                <div class="menu-item">Help</div>
+            </div>
+        </div>
+        
+        <div class="excel-toolbar">
+            <div class="toolbar-button bold">B</div>
+            <div class="toolbar-button italic">I</div>
+            <div class="toolbar-button">$</div>
+            <div class="toolbar-button">%</div>
+            <div class="toolbar-separator"></div>
+            <div class="cell-formula-bar">
+                <span>Formula: </span>
+                <input type="text" id="formula-input" />
+            </div>
+        </div>
+        
+        <div class="spreadsheet-area">
+            <div class="salary-section">
+                <div class="salary-label">Monthly Salary (USD):</div>
+                <input type="number" id="salary-input" min="0" step="0.01">
+                <button id="save-salary">Save</button>
+            </div>
+            
+            <div class="expense-form">
+                <div class="form-title">Add Expense</div>
+                <div class="form-row">
+                    <label for="expense-date">Date:</label>
+                    <input type="date" id="expense-date">
+                    
+                    <label for="expense-desc">Description:</label>
+                    <input type="text" id="expense-desc">
+                    
+                    <label for="expense-amount">Amount:</label>
+                    <input type="number" id="expense-amount" min="0" step="0.01">
+                    
+                    <label for="expense-currency">Currency:</label>
+                    <select id="expense-currency">
+                        <option value="USD-Blue">USD (Blue)</option>
+                        <option value="USD-Tarjeta">USD (Tarjeta)</option>
+                        <option value="ARS">ARS</option>
+                    </select>
+                    
+                    <button id="add-expense">Add</button>
+                </div>
+            </div>
+            
+            <div class="exchange-rate-info">
+                <div class="rate-row">
+                    <span>Current Exchange Rate (<span id="rate-type">Blue</span>): </span>
+                    <span id="exchange-rate">Loading...</span>
+                    <span> ARS/USD</span>
+                    <span class="rate-updated">(Updated: <span id="rate-updated">Loading...</span>)</span>
+                </div>
+                <div class="rate-selector">
+                    <span>Select USD Rate Type: </span>
+                    <button id="dolar-blue" class="rate-button active">Dolar Blue</button>
+                    <button id="dolar-tarjeta" class="rate-button">Dolar Tarjeta</button>
+                </div>
+            </div>
+            
+            <div class="grid-container">
+                <div class="column-headers">
+                    <div class="corner-cell"></div>
+                    <div class="column-header">A</div>
+                    <div class="column-header">B</div>
+                    <div class="column-header">C</div>
+                    <div class="column-header">D</div>
+                    <div class="column-header">E</div>
+                    <div class="column-header">F</div>
+                    <div class="column-header">G</div>
+                    <div class="column-header">H</div>
+                    <div class="column-header">I</div>
+                    <div class="column-header">J</div>
+                    <div class="column-header">K</div>
+                    <div class="column-header">L</div>
+                    <div class="column-header">M</div>
+                    <div class="column-header">N</div>
+                    <div class="column-header">O</div>
+                </div>
+                
+                <div class="grid-with-row-headers">
+                    <div class="row-headers">
+                        <div class="row-header">1</div>
+                        <div class="row-header">2</div>
+                        <div class="row-header">3</div>
+                        <div class="row-header">4</div>
+                        <div class="row-header">5</div>
+                        <div class="row-header">6</div>
+                        <div class="row-header">7</div>
+                        <div class="row-header">8</div>
+                        <div class="row-header">9</div>
+                        <div class="row-header">10</div>
+                        <div class="row-header">11</div>
+                        <div class="row-header">12</div>
+                        <div class="row-header">13</div>
+                        <div class="row-header">14</div>
+                        <div class="row-header">15</div>
+                        <div class="row-header">16</div>
+                        <div class="row-header">17</div>
+                        <div class="row-header">18</div>
+                        <div class="row-header">19</div>
+                        <div class="row-header">20</div>
+                        <div class="row-header">21</div>
+                        <div class="row-header">22</div>
+                        <div class="row-header">23</div>
+                        <div class="row-header">24</div>
+                        <div class="row-header">25</div>
+                        <div class="row-header">26</div>
+                        <div class="row-header">27</div>
+                        <div class="row-header">28</div>
+                        <div class="row-header">29</div>
+                        <div class="row-header">30</div>
+                        <div class="row-header">31</div>
+                        <div class="row-header">32</div>
+                        <div class="row-header">33</div>
+                        <div class="row-header">34</div>
+                        <div class="row-header">35</div>
+                        <div class="row-header">36</div>
+                        <div class="row-header">37</div>
+                        <div class="row-header">38</div>
+                        <div class="row-header">39</div>
+                        <div class="row-header">40</div>
+                        <div class="row-header">41</div>
+                        <div class="row-header">42</div>
+                        <div class="row-header">43</div>
+                        <div class="row-header">44</div>
+                        <div class="row-header">45</div>
+                        <div class="row-header">46</div>
+                        <div class="row-header">47</div>
+                        <div class="row-header">48</div>
+                        <div class="row-header">49</div>
+                        <div class="row-header">50</div>
+                    </div>
+                    
+                    <div class="grid" id="expense-grid">
+                        <!-- Grid cells will be generated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <div class="budget-row">
+                    <div class="budget-column">
+                        <div class="summary-row">
+                            <span class="summary-label">Remaining Budget (USD):</span>
+                            <span id="remaining-usd">$0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Total Expenses (USD):</span>
+                            <span id="total-usd">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="budget-column">
+                        <div class="summary-row">
+                            <span class="summary-label">Remaining Budget (ARS):</span>
+                            <span id="remaining-ars">ARS 0</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Total Expenses (ARS):</span>
+                            <span id="total-ars">ARS 0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="excel-statusbar">
+            <div class="status-cell">READY</div>
+            <div class="status-help">Press F1 for Help</div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/grid.js') }}"></script>
+</body>
+</html> 
