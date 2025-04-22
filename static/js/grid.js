@@ -14,6 +14,13 @@ let cellFormulas = {}; // Will store formulas for cells
 let columnWidths = {}; // Store custom column widths
 let rowHeights = {}; // Store custom row heights
 let selectedDolarType = 'blue'; // Default dollar type (blue or tarjeta)
+let touchStartX = 0;
+let touchStartY = 0;
+let isTouching = false;
+let touchTimeout = null;
+let budgetAllocations = []; // Will store budget allocations
+let budgetChart = null; // Chart.js instance
+let pendingExpense = null; // For storing expense that exceeds budget
 
 // Default column widths
 const DEFAULT_COLUMN_WIDTHS = {
@@ -58,9 +65,13 @@ function initGrid() {
             cell.style.width = `${width}px`;
             cell.style.minWidth = `${width}px`;
             
-            // Add event listeners
+            // Add event listeners for mouse
             cell.addEventListener('click', () => selectCell(cell));
             cell.addEventListener('dblclick', () => editCell(cell));
+            
+            // Add touch event listeners
+            cell.addEventListener('touchstart', (e) => handleTouchStart(e, cell));
+            cell.addEventListener('touchend', (e) => handleTouchEnd(e, cell));
             
             row.appendChild(cell);
         }
@@ -73,6 +84,65 @@ function initGrid() {
     
     // Setup resizing for columns and rows
     setupResizeHandlers();
+    
+    // Add touch scrollable class for iPhone
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
+        if (gridWithRowHeaders) {
+            gridWithRowHeaders.classList.add('touch-scrollable');
+        }
+    }
+}
+
+// Touch event handlers
+function handleTouchStart(e, cell) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    isTouching = true;
+    
+    // Simulate click after a short delay
+    touchTimeout = setTimeout(() => {
+        selectCell(cell);
+    }, 150);
+    
+    // For iPhone - ensure parent container is scrollable
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
+        if (gridWithRowHeaders) {
+            gridWithRowHeaders.style.overflow = 'auto';
+            gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
+        }
+    }
+}
+
+function handleTouchEnd(e, cell) {
+    if (!isTouching) return;
+    
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = Math.abs(touchEndX - touchStartX);
+    const deltaY = Math.abs(touchEndY - touchStartY);
+    
+    // Clear the timeout to prevent single tap action if this was a double tap
+    clearTimeout(touchTimeout);
+    
+    // If the user hasn't moved their finger much (not scrolling)
+    if (deltaX < 10 && deltaY < 10) {
+        // Double tap detection
+        const now = new Date().getTime();
+        const lastTap = cell.lastTap || 0;
+        const timeDiff = now - lastTap;
+        
+        if (timeDiff < 300 && timeDiff > 0) {
+            // Double tap detected
+            editCell(cell);
+            e.preventDefault(); // Prevent zoom
+        }
+        
+        cell.lastTap = now;
+    }
+    
+    isTouching = false;
 }
 
 // Set up fixed headers for expenses table
@@ -83,7 +153,8 @@ function setupExpenseHeaders() {
         { cell: 'C1', value: 'Amount (USD)', style: 'bold' },
         { cell: 'D1', value: 'Amount (ARS)', style: 'bold' },
         { cell: 'E1', value: 'Currency', style: 'bold' },
-        { cell: 'F1', value: 'Actions', style: 'bold' }
+        { cell: 'F1', value: 'Category', style: 'bold' },
+        { cell: 'G1', value: 'Actions', style: 'bold' }
     ];
     
     headers.forEach(header => {
@@ -109,11 +180,24 @@ function setupResizeHandlers() {
         header.style.width = `${width}px`;
         header.style.minWidth = `${width}px`;
         
+        // Mouse events
         header.addEventListener('mousedown', (e) => {
             // Check if we clicked on the resize handle (right 4px of column header)
             const rect = header.getBoundingClientRect();
             if (e.clientX > rect.right - 4) {
                 startColumnResize(letter, e.clientX);
+            }
+        });
+        
+        // Touch events for column resize
+        header.addEventListener('touchstart', (e) => {
+            const rect = header.getBoundingClientRect();
+            const touchX = e.touches[0].clientX;
+            
+            // If touch is in the resize handle area
+            if (touchX > rect.right - 15) {
+                e.preventDefault();
+                startColumnResize(letter, touchX);
             }
         });
     });
@@ -129,11 +213,24 @@ function setupResizeHandlers() {
             header.style.height = rowHeights[rowNum] + 'px';
         }
         
+        // Mouse events
         header.addEventListener('mousedown', (e) => {
             // Check if we clicked on the resize handle (bottom 4px of row header)
             const rect = header.getBoundingClientRect();
             if (e.clientY > rect.bottom - 4) {
                 startRowResize(rowNum, e.clientY);
+            }
+        });
+        
+        // Touch events for row resize
+        header.addEventListener('touchstart', (e) => {
+            const rect = header.getBoundingClientRect();
+            const touchY = e.touches[0].clientY;
+            
+            // If touch is in the resize handle area
+            if (touchY > rect.bottom - 15) {
+                e.preventDefault();
+                startRowResize(rowNum, touchY);
             }
         });
     });
@@ -166,9 +263,21 @@ function startColumnResize(colLetter, startX) {
         resizeHandle.style.left = (e.clientX - 2) + 'px';
     };
     
+    const onTouchMove = (e) => {
+        e.preventDefault();
+        const touchX = e.touches[0].clientX;
+        const deltaX = touchX - startX;
+        const newWidth = Math.max(20, initialWidth + deltaX);
+        
+        // Update the visual guide
+        resizeHandle.style.left = (touchX - 2) + 'px';
+    };
+    
     const onMouseUp = (e) => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onMouseUp);
         
         // Calculate final width
         const deltaX = e.clientX - startX;
@@ -189,8 +298,36 @@ function startColumnResize(colLetter, startX) {
         document.body.removeChild(resizeHandle);
     };
     
+    const onTouchEnd = (e) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        
+        // Calculate final width
+        const touchX = e.changedTouches[0].clientX;
+        const deltaX = touchX - startX;
+        const newWidth = Math.max(20, initialWidth + deltaX);
+        
+        // Store the new width
+        columnWidths[colLetter] = newWidth;
+        
+        // Apply to header
+        columnHeader.style.width = newWidth + 'px';
+        
+        // Apply to all cells in this column
+        columnCells.forEach(cell => {
+            cell.style.width = newWidth + 'px';
+        });
+        
+        // Remove the resize handle
+        document.body.removeChild(resizeHandle);
+    };
+    
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
 }
 
 // Start row resize operation
@@ -203,40 +340,73 @@ function startRowResize(rowNum, startY) {
     // Create a resize handle indicator
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle-active resize-handle-row';
-    resizeHandle.style.top = (startY - 2) + 'px'; // Center the handle on the cursor
+    resizeHandle.style.top = (startY - 2) + 'px';
     document.body.appendChild(resizeHandle);
     
     const onMouseMove = (e) => {
         const deltaY = e.clientY - startY;
-        const newHeight = Math.max(15, initialHeight + deltaY); // Minimum height of 15px
+        const newHeight = Math.max(18, initialHeight + deltaY);
         
         // Update the visual guide
         resizeHandle.style.top = (e.clientY - 2) + 'px';
     };
     
+    const onTouchMove = (e) => {
+        e.preventDefault();
+        const touchY = e.touches[0].clientY;
+        const deltaY = touchY - startY;
+        const newHeight = Math.max(18, initialHeight + deltaY);
+        
+        // Update the visual guide
+        resizeHandle.style.top = (touchY - 2) + 'px';
+    };
+    
     const onMouseUp = (e) => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onMouseUp);
         
         // Calculate final height
         const deltaY = e.clientY - startY;
-        const newHeight = Math.max(15, initialHeight + deltaY);
+        const newHeight = Math.max(18, initialHeight + deltaY);
         
         // Store the new height
         rowHeights[rowNum] = newHeight;
         
-        // Apply to header
+        // Apply to row header
         rowHeader.style.height = newHeight + 'px';
         
-        // Apply to the row
+        // Apply to grid row
         if (gridRow) {
             gridRow.style.height = newHeight + 'px';
         }
         
-        // Apply to all cells in this row
-        rowCells.forEach(cell => {
-            cell.style.height = newHeight + 'px';
-        });
+        // Remove the resize handle
+        document.body.removeChild(resizeHandle);
+    };
+    
+    const onTouchEnd = (e) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        
+        // Calculate final height
+        const touchY = e.changedTouches[0].clientY;
+        const deltaY = touchY - startY;
+        const newHeight = Math.max(18, initialHeight + deltaY);
+        
+        // Store the new height
+        rowHeights[rowNum] = newHeight;
+        
+        // Apply to row header
+        rowHeader.style.height = newHeight + 'px';
+        
+        // Apply to grid row
+        if (gridRow) {
+            gridRow.style.height = newHeight + 'px';
+        }
         
         // Remove the resize handle
         document.body.removeChild(resizeHandle);
@@ -244,6 +414,8 @@ function startRowResize(rowNum, startY) {
     
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
 }
 
 // Select a cell
@@ -606,6 +778,8 @@ document.getElementById('save-salary').addEventListener('click', async () => {
             if (response.ok) {
                 monthlySalary = salary;
                 updateTotals();
+                // Also update budget allocations
+                await fetchBudgetAllocations();
                 console.log('Salary saved:', salary);
             }
         } catch (error) {
@@ -627,13 +801,21 @@ async function fetchExpenses() {
 
 // Format a number to display properly
 function formatNumber(num, isUSD = false) {
+    // Ensure num is a number
+    num = parseFloat(num);
+    
+    // Check for invalid values
+    if (isNaN(num)) {
+        return "0.00";
+    }
+    
     if (isUSD) {
-        return parseFloat(num).toFixed(2);
+        return num.toFixed(2);
     } else {
         // For ARS, use no decimal places if the number is whole
-        return parseFloat(num) % 1 === 0 ? 
-            Math.round(parseFloat(num)).toString() : 
-            parseFloat(num).toFixed(2);
+        return num % 1 === 0 ? 
+            Math.round(num).toString() : 
+            num.toFixed(2);
     }
 }
 
@@ -677,10 +859,13 @@ function displayExpenses() {
             gridData[`E${row}`] = selectedDolarType === 'blue' ? 'USD-Blue' : 'USD-Tarjeta';
         }
         
-        gridData[`F${row}`] = 'Delete';
+        // Add category to the grid
+        gridData[`F${row}`] = expense.category || 'Fixed Expenses';
+        
+        gridData[`G${row}`] = 'Delete';
         
         // Set delete button
-        const cell = document.getElementById(`F${row}`);
+        const cell = document.getElementById(`G${row}`);
         if (cell) {
             cell.style.color = 'red';
             cell.style.cursor = 'pointer';
@@ -722,40 +907,323 @@ document.getElementById('add-expense').addEventListener('click', async () => {
     const descInput = document.getElementById('expense-desc');
     const amountInput = document.getElementById('expense-amount');
     const currencySelect = document.getElementById('expense-currency');
+    const categorySelect = document.getElementById('expense-category');
     
     const date = dateInput.value || new Date().toISOString().split('T')[0];
     const description = descInput.value || 'Unnamed expense';
     const amount = parseFloat(amountInput.value);
     const currency = currencySelect.value;
+    const category = categorySelect.value;
     
     if (!isNaN(amount) && amount > 0) {
-        try {
-            const response = await fetch('/api/expenses', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ date, description, amount, currency })
-            });
-            
-            if (response.ok) {
-                // Clear form
-                dateInput.value = '';
-                descInput.value = '';
-                amountInput.value = '';
-                
-                // Fetch updated expenses
-                await fetchExpenses();
-                
-                console.log('Expense added');
+        // Check if this expense would exceed budget limits
+        const current_month = date.split('-').slice(0, 2).join('-');
+        
+        // Find the matching budget allocation
+        const matchingAllocation = budgetAllocations.find(alloc => 
+            alloc.name === category
+        );
+        
+        if (matchingAllocation) {
+            // Convert amount to USD if it's in ARS
+            let amountInUSD = amount;
+            if (currency === 'ARS') {
+                // Determine the exchange rate to use
+                const currentRate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
+                if (currentRate > 0) {
+                    amountInUSD = amount / currentRate;
+                }
             }
-        } catch (error) {
-            console.error('Error adding expense:', error);
+            
+            // Now check if the USD amount exceeds the budget limit
+            if (matchingAllocation.actual + amountInUSD > matchingAllocation.allocated * 1.2) {
+                // This expense would exceed 120% of the budget
+                pendingExpense = { date, description, amount, currency, category };
+                
+                // Show confirmation modal
+                document.getElementById('budget-exceed-modal').style.display = 'block';
+                return;
+            }
         }
+        
+        await addExpense(date, description, amount, currency, category);
     } else {
         alert('Please enter a valid amount');
     }
 });
+
+// Confirm expense that exceeds budget
+document.getElementById('confirm-expense').addEventListener('click', async () => {
+    if (pendingExpense) {
+        const { date, description, amount, currency, category } = pendingExpense;
+        await addExpense(date, description, amount, currency, category);
+        pendingExpense = null;
+    }
+    document.getElementById('budget-exceed-modal').style.display = 'none';
+});
+
+// Cancel expense that exceeds budget
+document.getElementById('cancel-expense').addEventListener('click', () => {
+    pendingExpense = null;
+    document.getElementById('budget-exceed-modal').style.display = 'none';
+});
+
+// Add expense helper function
+async function addExpense(date, description, amount, currency, category) {
+    try {
+        const response = await fetch('/api/expenses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ date, description, amount, currency, category })
+        });
+        
+        if (response.ok) {
+            // Clear form
+            document.getElementById('expense-date').value = '';
+            document.getElementById('expense-desc').value = '';
+            document.getElementById('expense-amount').value = '';
+            
+            // Fetch updated expenses and budget
+            await fetchExpenses();
+            await fetchBudgetAllocations();
+            
+            console.log('Expense added');
+        }
+    } catch (error) {
+        console.error('Error adding expense:', error);
+    }
+}
+
+// Fetch budget allocations from backend
+async function fetchBudgetAllocations() {
+    try {
+        const response = await fetch('/api/budget-allocations');
+        const data = await response.json();
+        
+        console.log("Budget allocations data:", data);
+        
+        // Store the allocations
+        budgetAllocations = data.allocations;
+        
+        // Display budget allocations
+        displayBudgetAllocations(data);
+        
+        // Update the budget chart
+        updateBudgetChart(data);
+        
+        // Check for budget warnings
+        checkBudgetWarnings(data);
+    } catch (error) {
+        console.error('Error fetching budget allocations:', error);
+    }
+}
+
+// Display budget allocations in the grid
+function displayBudgetAllocations(data) {
+    console.log("Displaying budget data:", data);
+    
+    const budgetGrid = document.getElementById('budget-allocation-body');
+    const budgetTotals = document.getElementById('budget-allocation-totals');
+    
+    // Clear existing content
+    budgetGrid.innerHTML = '';
+    budgetTotals.innerHTML = '';
+    
+    // Add each budget category row
+    data.allocations.forEach(allocation => {
+        const row = document.createElement('div');
+        row.className = 'budget-grid-row';
+        
+        // Category name
+        const nameCell = document.createElement('div');
+        nameCell.className = 'budget-grid-cell';
+        nameCell.textContent = allocation.name;
+        row.appendChild(nameCell);
+        
+        // Percentage
+        const percentCell = document.createElement('div');
+        percentCell.className = 'budget-grid-cell';
+        percentCell.textContent = `${allocation.percentage.toFixed(1)}%`;
+        row.appendChild(percentCell);
+        
+        // Allocated amount
+        const allocatedCell = document.createElement('div');
+        allocatedCell.className = 'budget-grid-cell';
+        allocatedCell.textContent = `$${formatNumber(allocation.allocated, true)}`;
+        row.appendChild(allocatedCell);
+        
+        // Actual spend
+        const actualCell = document.createElement('div');
+        actualCell.className = 'budget-grid-cell';
+        actualCell.textContent = `$${formatNumber(allocation.actual, true)}`;
+        row.appendChild(actualCell);
+        
+        // Remaining balance
+        const remainingCell = document.createElement('div');
+        remainingCell.className = 'budget-grid-cell';
+        if (allocation.remaining < 0) {
+            remainingCell.classList.add('over-budget');
+        }
+        remainingCell.textContent = `$${formatNumber(allocation.remaining, true)}`;
+        row.appendChild(remainingCell);
+        
+        budgetGrid.appendChild(row);
+    });
+    
+    // Manually calculate totals to ensure we have values
+    let totalAllocated = 0;
+    let totalActual = 0;
+    let totalRemaining = 0;
+    
+    if (data.allocations && data.allocations.length > 0) {
+        data.allocations.forEach(allocation => {
+            totalAllocated += allocation.allocated || 0;
+            totalActual += allocation.actual || 0;
+        });
+        totalRemaining = totalAllocated - totalActual;
+    } else {
+        // Use data from API if available
+        totalAllocated = data.total_allocated || 0;
+        totalActual = data.total_actual || 0;
+        totalRemaining = data.total_remaining || 0;
+    }
+    
+    // Add total row
+    const totalRow = document.createElement('div');
+    totalRow.className = 'budget-grid-row';
+    
+    // Totals
+    const nameCell = document.createElement('div');
+    nameCell.className = 'budget-grid-cell';
+    nameCell.textContent = 'Total';
+    totalRow.appendChild(nameCell);
+    
+    const percentCell = document.createElement('div');
+    percentCell.className = 'budget-grid-cell';
+    percentCell.textContent = '100%';
+    totalRow.appendChild(percentCell);
+    
+    console.log("Total allocated:", totalAllocated);
+    
+    const allocatedCell = document.createElement('div');
+    allocatedCell.className = 'budget-grid-cell';
+    allocatedCell.textContent = `$${formatNumber(totalAllocated, true)}`;
+    totalRow.appendChild(allocatedCell);
+    
+    console.log("Total actual:", totalActual);
+    
+    const actualCell = document.createElement('div');
+    actualCell.className = 'budget-grid-cell';
+    actualCell.textContent = `$${formatNumber(totalActual, true)}`;
+    totalRow.appendChild(actualCell);
+    
+    console.log("Total remaining:", totalRemaining);
+    
+    const remainingCell = document.createElement('div');
+    remainingCell.className = 'budget-grid-cell';
+    if (totalRemaining < 0) {
+        remainingCell.classList.add('over-budget');
+    }
+    remainingCell.textContent = `$${formatNumber(totalRemaining, true)}`;
+    totalRow.appendChild(remainingCell);
+    
+    budgetTotals.appendChild(totalRow);
+}
+
+// Update budget chart
+function updateBudgetChart(data) {
+    console.log("Updating budget chart with data:", data);
+    
+    const ctx = document.getElementById('budget-chart').getContext('2d');
+    
+    // Prepare data for chart
+    const labels = data.allocations.map(a => a.name);
+    const allocatedData = data.allocations.map(a => a.allocated);
+    const actualData = data.allocations.map(a => a.actual);
+    
+    console.log("Chart labels:", labels);
+    console.log("Allocated data:", allocatedData);
+    console.log("Actual data:", actualData);
+    
+    // Destroy existing chart if exists
+    if (budgetChart) {
+        budgetChart.destroy();
+    }
+    
+    // Create new chart
+    budgetChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Allocated',
+                    data: allocatedData,
+                    backgroundColor: 'rgba(0, 0, 128, 0.7)',
+                    borderColor: 'rgba(0, 0, 128, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Actual',
+                    data: actualData,
+                    backgroundColor: 'rgba(192, 0, 0, 0.7)',
+                    borderColor: 'rgba(192, 0, 0, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Amount (USD)'
+                    }
+                }
+            },
+            animation: {
+                duration: 1000
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += '$' + formatNumber(context.raw, true);
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Check for budget warnings
+function checkBudgetWarnings(data) {
+    const warningElement = document.getElementById('budget-warning');
+    
+    // Check if any categories exceed their budget
+    const overBudget = data.allocations.some(a => a.is_over_budget);
+    
+    if (overBudget) {
+        warningElement.classList.remove('hidden');
+    } else {
+        warningElement.classList.add('hidden');
+    }
+}
 
 // Delete an expense
 async function deleteExpense(id) {
@@ -836,20 +1304,201 @@ function updateTotals() {
     document.getElementById('total-ars').style.color = '';
 }
 
+// Function to adjust budget allocations
+async function redistributeBudget(adjustments) {
+    if (!adjustments || !Array.isArray(adjustments) || adjustments.length === 0) {
+        return;
+    }
+    
+    // Validate that percentages sum to 100%
+    const totalPercentage = adjustments.reduce((total, adj) => total + adj.percentage, 0);
+    if (Math.abs(totalPercentage - 100) > 0.1) {
+        alert('Total percentage must equal 100%');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/budget-allocations/redistribute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ adjustments })
+        });
+        
+        if (response.ok) {
+            await fetchBudgetAllocations();
+            console.log('Budget redistributed successfully');
+        }
+    } catch (error) {
+        console.error('Error redistributing budget:', error);
+    }
+}
+
+// Open budget adjustment modal
+document.getElementById('adjust-budget').addEventListener('click', () => {
+    // Populate the form with current allocations
+    const form = document.getElementById('budget-adjustment-form');
+    form.innerHTML = '';
+    
+    // Add inputs for each category
+    budgetAllocations.forEach(alloc => {
+        const row = document.createElement('div');
+        row.className = 'budget-adjustment-row';
+        
+        const catLabel = document.createElement('div');
+        catLabel.className = 'budget-adjustment-category';
+        catLabel.textContent = alloc.name;
+        
+        const percentInput = document.createElement('div');
+        percentInput.className = 'budget-adjustment-percentage';
+        
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.max = '100';
+        input.step = '0.1';
+        input.value = alloc.percentage.toFixed(1);
+        input.dataset.id = alloc.id;
+        input.addEventListener('input', updateAdjustmentTotal);
+        
+        percentInput.appendChild(input);
+        percentInput.appendChild(document.createTextNode(' %'));
+        
+        row.appendChild(catLabel);
+        row.appendChild(percentInput);
+        
+        form.appendChild(row);
+    });
+    
+    // Add total row
+    const totalRow = document.createElement('div');
+    totalRow.className = 'adjustment-total';
+    totalRow.id = 'adjustment-total';
+    totalRow.textContent = 'Total: 100.0%';
+    form.appendChild(totalRow);
+    
+    // Show the modal
+    document.getElementById('budget-adjust-modal').style.display = 'block';
+});
+
+// Update total percentage when inputs change
+function updateAdjustmentTotal() {
+    const inputs = document.querySelectorAll('#budget-adjustment-form input');
+    let total = 0;
+    
+    inputs.forEach(input => {
+        const val = parseFloat(input.value) || 0;
+        total += val;
+    });
+    
+    const totalElement = document.getElementById('adjustment-total');
+    totalElement.textContent = `Total: ${total.toFixed(1)}%`;
+    
+    // Highlight if not 100%
+    if (Math.abs(total - 100) > 0.1) {
+        totalElement.classList.add('invalid');
+    } else {
+        totalElement.classList.remove('invalid');
+    }
+}
+
+// Save budget adjustments
+document.getElementById('save-budget-adjustments').addEventListener('click', async () => {
+    const inputs = document.querySelectorAll('#budget-adjustment-form input');
+    let total = 0;
+    const adjustments = [];
+    
+    inputs.forEach(input => {
+        const val = parseFloat(input.value) || 0;
+        total += val;
+        
+        adjustments.push({
+            id: parseInt(input.dataset.id),
+            percentage: val
+        });
+    });
+    
+    // Validate total
+    if (Math.abs(total - 100) > 0.1) {
+        alert('Total percentage must equal 100%');
+        return;
+    }
+    
+    // Save changes
+    await redistributeBudget(adjustments);
+    
+    // Close modal
+    document.getElementById('budget-adjust-modal').style.display = 'none';
+});
+
+// Cancel budget adjustments
+document.getElementById('cancel-budget-adjustments').addEventListener('click', () => {
+    document.getElementById('budget-adjust-modal').style.display = 'none';
+});
+
 // Initialize app
 async function initApp() {
     initGrid();
     await fetchExchangeRate();
     await fetchSalary();
     await fetchExpenses();
+    await fetchBudgetAllocations();
     
     // Add event listeners for dolar type selection
     document.getElementById('dolar-blue').addEventListener('click', () => switchDolarType('blue'));
     document.getElementById('dolar-tarjeta').addEventListener('click', () => switchDolarType('tarjeta'));
+    document.getElementById('dolar-blue').addEventListener('touchend', (e) => {
+        e.preventDefault();
+        switchDolarType('blue');
+    });
+    document.getElementById('dolar-tarjeta').addEventListener('touchend', (e) => {
+        e.preventDefault();
+        switchDolarType('tarjeta');
+    });
     
     // Initialize currency dropdown with current selected rate
     const currencySelect = document.getElementById('expense-currency');
     currencySelect.value = selectedDolarType === 'blue' ? 'USD-Blue' : 'USD-Tarjeta';
+    
+    // Set up buttons with touch events
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        if (button.id !== 'dolar-blue' && button.id !== 'dolar-tarjeta') {
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                button.click();
+            });
+        }
+    });
+    
+    // iPhone-specific setup for grid navigation
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        // Add touch event listener to the grid container to ensure scrollability
+        const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
+        if (gridWithRowHeaders) {
+            // Add touch-scrollable class
+            gridWithRowHeaders.classList.add('touch-scrollable');
+            
+            gridWithRowHeaders.addEventListener('touchmove', function(e) {
+                // Ensure the event continues to propagate for scrolling
+                e.stopPropagation();
+            }, { passive: true });
+            
+            // Make sure the grid is actually visible
+            setTimeout(() => {
+                const gridContainer = document.querySelector('.grid-container');
+                if (gridContainer) {
+                    gridContainer.style.display = 'flex';
+                    gridContainer.style.flex = '1 0 auto';
+                    gridContainer.style.minHeight = '300px';
+                }
+                
+                gridWithRowHeaders.style.overflow = 'auto';
+                gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
+            }, 300);
+        }
+    }
 }
 
 // Start the app when the document is loaded

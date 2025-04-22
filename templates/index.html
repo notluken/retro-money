@@ -2,9 +2,167 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Retro Money">
+    <meta name="theme-color" content="#000080">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
     <title>Excel 2.0 (1987) Expense Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/excel-retro.css') }}">
+    
+    <!-- Mobile device detection and conditional CSS loading -->
+    <script type="text/javascript">
+        var isMobileDevice = /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
+        
+        if (isMobileDevice) {
+            // This is a mobile device, load mobile specific CSS
+            document.write('<link rel="stylesheet" href="{{ url_for("static", filename="css/mobile-fix.css") }}">');
+            // Mark the body as mobile
+            document.addEventListener('DOMContentLoaded', function() {
+                document.body.classList.add('mobile-device');
+            });
+        }
+    </script>
+    
+    <!-- Inline mobile-specific styles that don't affect desktop -->
+    <style>
+        /* These styles only apply to devices with mobile-device class */
+        @media only screen and (max-width: 767px) {
+            body.mobile-device .grid-container {
+                min-height: 400px !important;
+                overflow: hidden !important;
+            }
+            
+            body.mobile-device .grid-with-row-headers {
+                overflow: hidden !important;
+                -webkit-overflow-scrolling: touch !important;
+                touch-action: manipulation !important;
+                overscroll-behavior: auto !important;
+            }
+            
+            body.mobile-device .grid {
+                min-width: max-content !important;
+                width: max-content !important;
+            }
+            
+            body.mobile-device .corner-cell {
+                position: sticky !important;
+                left: 0 !important;
+                top: 0 !important;
+                z-index: 10 !important;
+                background-color: #c0c0c0 !important;
+            }
+            
+            body.mobile-device .row-header {
+                position: sticky !important;
+                left: 0 !important;
+                z-index: 5 !important;
+                background-color: #c0c0c0 !important;
+            }
+            
+            body.mobile-device .column-header {
+                position: sticky !important;
+                top: 0 !important;
+                z-index: 5 !important;
+                background-color: #c0c0c0 !important;
+            }
+            
+            /* Hide scrollbars completely */
+            body.mobile-device .grid-with-row-headers {
+                overflow: hidden !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+        }
+    </style>
+    
+    <script type="text/javascript">
+        // Prevent iOS Safari from scaling the viewport when in landscape mode
+        if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            document.addEventListener('gesturestart', function(e) {
+                e.preventDefault();
+            });
+        }
+        
+        // Fix iOS viewport height issue
+        function updateHeight() {
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+            }
+        }
+        window.addEventListener('resize', updateHeight);
+        window.addEventListener('orientationchange', updateHeight);
+        document.addEventListener('DOMContentLoaded', updateHeight);
+
+        // Only run this code on iOS devices
+        if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            document.addEventListener('DOMContentLoaded', function() {
+                // Ensure grid is visible on iPhone
+                const gridContainer = document.querySelector('.grid-container');
+                const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
+                
+                if (gridContainer && gridWithRowHeaders) {
+                    // Make sure grid is visible with proper overflow
+                    gridContainer.style.display = 'flex';
+                    gridContainer.style.flex = '1 0 auto';
+                    gridContainer.style.minHeight = '300px';
+                    
+                    gridWithRowHeaders.style.overflow = 'auto';
+                    gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
+                    
+                    // Ensure grid remains visible after a short delay
+                    setTimeout(function() {
+                        gridContainer.style.display = 'flex';
+                        gridWithRowHeaders.style.overflow = 'auto';
+                    }, 500);
+                    
+                    // Handle orientation changes
+                    window.addEventListener('orientationchange', function() {
+                        setTimeout(function() {
+                            gridContainer.style.display = 'flex';
+                            gridWithRowHeaders.style.overflow = 'auto';
+                        }, 300);
+                    });
+                }
+            });
+        }
+
+        // Add specific iPhone horizontal scroll fix
+        if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            document.addEventListener('DOMContentLoaded', function() {
+                // Get grid elements
+                const gridContainer = document.querySelector('.grid-container');
+                const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
+                const grid = document.querySelector('.grid');
+                
+                if (gridContainer && gridWithRowHeaders && grid) {
+                    // Hide scrolling completely
+                    gridWithRowHeaders.style.overflow = 'hidden';
+                    gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
+                    
+                    // Force grid to be wider
+                    grid.style.minWidth = 'max-content';
+                    grid.style.width = 'max-content';
+                    
+                    // Apply these styles multiple times to ensure they take effect
+                    const applyScrollStyles = () => {
+                        gridWithRowHeaders.style.overflow = 'hidden';
+                    };
+                    
+                    applyScrollStyles();
+                    setTimeout(applyScrollStyles, 100);
+                    setTimeout(applyScrollStyles, 500);
+                    setTimeout(applyScrollStyles, 1000);
+                    
+                    // Handle touch events specifically for horizontal scrolling
+                    gridWithRowHeaders.addEventListener('touchmove', function(e) {
+                        // Don't block scrolling
+                    }, { passive: true });
+                }
+            });
+        }
+    </script>
 </head>
 <body>
     <div class="excel-container">
@@ -38,6 +196,31 @@
                 <button id="save-salary">Save</button>
             </div>
             
+            <div class="budget-dashboard">
+                <div class="budget-title">60/20/10/10 Budget Dashboard</div>
+                <div class="budget-actions">
+                    <button id="adjust-budget">Adjust Budget Allocations</button>
+                </div>
+                <div class="budget-grid" id="budget-allocation-grid">
+                    <div class="budget-grid-header">
+                        <div class="budget-grid-cell">Category</div>
+                        <div class="budget-grid-cell">% Allocation</div>
+                        <div class="budget-grid-cell">Allocated Amount</div>
+                        <div class="budget-grid-cell">Actual Spend</div>
+                        <div class="budget-grid-cell">Remaining Balance</div>
+                    </div>
+                    <div class="budget-grid-body" id="budget-allocation-body">
+                        <!-- Budget allocations will be populated by JavaScript -->
+                    </div>
+                    <div class="budget-grid-footer" id="budget-allocation-totals">
+                        <!-- Total row will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="budget-chart-container">
+                    <canvas id="budget-chart"></canvas>
+                </div>
+            </div>
+            
             <div class="expense-form">
                 <div class="form-title">Add Expense</div>
                 <div class="form-row">
@@ -55,6 +238,14 @@
                         <option value="USD-Blue">USD (Blue)</option>
                         <option value="USD-Tarjeta">USD (Tarjeta)</option>
                         <option value="ARS">ARS</option>
+                    </select>
+                    
+                    <label for="expense-category">Category:</label>
+                    <select id="expense-category">
+                        <option value="Fixed Expenses">Fixed Expenses</option>
+                        <option value="Guilt-Free Spending">Guilt-Free Spending</option>
+                        <option value="Savings">Savings</option>
+                        <option value="Investments">Investments</option>
                     </select>
                     
                     <button id="add-expense">Add</button>
@@ -184,9 +375,46 @@
         <div class="excel-statusbar">
             <div class="status-cell">READY</div>
             <div class="status-help">Press F1 for Help</div>
+            <div id="budget-warning" class="budget-warning hidden">Warning: A budget category has exceeded its allocation</div>
         </div>
     </div>
     
+    <div id="budget-exceed-modal" class="modal">
+        <div class="modal-content">
+            <p>Warning: This expense will push you over 120% of your budget allocation for this category.</p>
+            <p>Are you sure you want to proceed?</p>
+            <div class="modal-actions">
+                <button id="confirm-expense">Yes, Proceed</button>
+                <button id="cancel-expense">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="budget-adjust-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Adjust Budget Allocations</div>
+            <p>Total must equal 100%</p>
+            <div id="budget-adjustment-form">
+                <!-- Will be populated dynamically -->
+            </div>
+            <div class="modal-actions">
+                <button id="save-budget-adjustments">Save</button>
+                <button id="cancel-budget-adjustments">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/grid.js') }}"></script>
+    
+    <!-- Mobile-specific JS - only loaded on mobile devices -->
+    <script type="text/javascript">
+        if (/iPhone|iPad|iPod|Android/.test(navigator.userAgent)) {
+            // Load mobile-specific enhancements
+            const script = document.createElement('script');
+            script.src = "{{ url_for('static', filename='js/mobile-fix.js') }}";
+            document.body.appendChild(script);
+        }
+    </script>
 </body>
 </html> 
