@@ -157,6 +157,23 @@ function setupExpenseHeaders() {
         { cell: 'G1', value: 'Actions', style: 'bold' }
     ];
     
+    // First, style all row 1 cells with red background
+    for (let c = 0; c < GRID_COLS; c++) {
+        const colLetter = COL_LETTERS[c];
+        const cellId = `${colLetter}1`;
+        const cell = document.getElementById(cellId);
+        
+        if (cell) {
+            cell.style.backgroundColor = '#c0c0c0';
+            cell.style.color = '#000000';
+            cell.style.fontWeight = 'bold';
+            cell.style.borderBottom = '2px solid #000000';
+            cell.style.borderRight = '2px solid #000000';
+            cell.style.height = '35px';
+        }
+    }
+    
+    // Then set specific header text
     headers.forEach(header => {
         const cell = document.getElementById(header.cell);
         if (cell) {
@@ -1090,36 +1107,27 @@ function displayBudgetAllocations(data) {
         totalRemaining = data.total_remaining || 0;
     }
     
-    // Add total row
-    const totalRow = document.createElement('div');
-    totalRow.className = 'budget-grid-row';
-    
-    // Totals
+    // Instead of creating a separate row, let's directly add cells to the footer
+    // This ensures alignment with the header which is also constructed this way
     const nameCell = document.createElement('div');
     nameCell.className = 'budget-grid-cell';
     nameCell.textContent = 'Total';
-    totalRow.appendChild(nameCell);
+    budgetTotals.appendChild(nameCell);
     
     const percentCell = document.createElement('div');
     percentCell.className = 'budget-grid-cell';
     percentCell.textContent = '100%';
-    totalRow.appendChild(percentCell);
-    
-    console.log("Total allocated:", totalAllocated);
+    budgetTotals.appendChild(percentCell);
     
     const allocatedCell = document.createElement('div');
     allocatedCell.className = 'budget-grid-cell';
     allocatedCell.textContent = `$${formatNumber(totalAllocated, true)}`;
-    totalRow.appendChild(allocatedCell);
-    
-    console.log("Total actual:", totalActual);
+    budgetTotals.appendChild(allocatedCell);
     
     const actualCell = document.createElement('div');
     actualCell.className = 'budget-grid-cell';
     actualCell.textContent = `$${formatNumber(totalActual, true)}`;
-    totalRow.appendChild(actualCell);
-    
-    console.log("Total remaining:", totalRemaining);
+    budgetTotals.appendChild(actualCell);
     
     const remainingCell = document.createElement('div');
     remainingCell.className = 'budget-grid-cell';
@@ -1127,9 +1135,7 @@ function displayBudgetAllocations(data) {
         remainingCell.classList.add('over-budget');
     }
     remainingCell.textContent = `$${formatNumber(totalRemaining, true)}`;
-    totalRow.appendChild(remainingCell);
-    
-    budgetTotals.appendChild(totalRow);
+    budgetTotals.appendChild(remainingCell);
 }
 
 // Update budget chart

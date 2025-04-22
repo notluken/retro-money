@@ -259,8 +259,8 @@ body {
 
 .column-headers {
     display: flex;
-    height: 25px;
-    border-bottom: 1px solid var(--excel-grid-line);
+    height: 35px; /* Increase height even more */
+    border-bottom: 2px solid #000000; /* Thicker bottom border */
     position: relative;
     background-color: var(--excel-bg);
     user-select: none;
@@ -271,20 +271,25 @@ body {
 .corner-cell {
     min-width: 60px;
     width: 60px;
-    border-right: 1px solid var(--excel-grid-line);
-    background-color: var(--excel-bg);
+    height: 35px; /* Match the row height */
+    border-right: 2px solid #000000; /* Thicker right border */
+    background-color: #c0c0c0; /* Same red as column headers */
+    color: #ffffff; /* Add white text color for better visibility */
     flex-shrink: 0;
 }
 
 .column-header {
     min-width: 120px;
     width: 120px;
+    height: 35px; /* Match container height */
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 1px solid var(--excel-grid-line);
-    background-color: var(--excel-bg);
+    border-right: 2px solid #000000; /* Thicker right border */
+    background-color: #c0c0c0; /* Brighter red */
+    color: #ffffff; /* Change to white text for better visibility */
     font-weight: bold;
+    font-size: 14px; /* Slightly larger font */
     position: relative;
     user-select: none;
     text-align: center;
@@ -358,9 +363,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 1px solid var(--excel-grid-line);
+    border-right: 2px solid #000000; /* Match column header border */
     border-bottom: 1px solid var(--excel-grid-line);
-    background-color: var(--excel-bg);
+    background-color: #c0c0c0; /* Match column header color */
+    color: #000000; /* Change to white text for better visibility */
     font-weight: bold;
     position: relative;
     user-select: none;
@@ -403,6 +409,19 @@ body {
     text-overflow: ellipsis;
     background-color: white;
     flex-shrink: 0;
+}
+
+/* Special styling for header row */
+.grid-cell[data-row="1"] {
+    background-color: #c0c0c0;
+    color: #000000; /* Change to white text for better visibility */
+    font-weight: bold;
+    border-bottom: 2px solid #000000;
+    border-right: 2px solid #000000;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Column-specific styling */
@@ -915,14 +934,26 @@ button:active {
 }
 
 .budget-grid-footer {
-    display: flex;
+    display: flex; /* Keep the row as a flex container */
     background-color: #d0d0d0;
     font-weight: bold;
     border-top: 1px solid var(--excel-border);
+    width: 100%;
+}
+
+/* Make sure all grid cells use the same flex settings across header, body, and footer */
+.budget-grid-header .budget-grid-cell,
+.budget-grid-body .budget-grid-cell,
+.budget-grid-footer .budget-grid-cell {
+    flex: 1; /* All cells take equal space */
+    padding: 3px 5px;
+    border-right: 1px solid var(--excel-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .budget-grid-cell {
-    flex: 1;
     padding: 3px 5px;
     border-right: 1px solid var(--excel-border);
     white-space: nowrap;
