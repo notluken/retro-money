@@ -9,6 +9,8 @@
     --excel-text: #000000;
     --excel-grid-line: #808080;
     --excel-toolbar: #c0c0c0;
+    --excel-cell-border: #000000;
+    --excel-header-bg: #c0c0c0;
     --vh: 1vh;
 }
 
@@ -21,32 +23,24 @@
 }
 
 body {
-    background-color: var(--excel-bg);
-    color: var(--excel-text);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh; /* Fallback */
-    height: calc(var(--vh, 1vh) * 100);
-    width: 100vw;
     margin: 0;
     padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    height: 100vh;
+    width: 100%;
     overflow: hidden;
-    position: fixed; /* Prevent overscroll on iOS */
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
 }
 
 .excel-container {
     display: flex;
     flex-direction: column;
+    height: 100vh;
     width: 100%;
-    height: 100%;
+    overflow: hidden;
+    background-color: #f0f0f0;
     border: 2px solid var(--excel-border);
     box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
 }
 
 .excel-header {
@@ -138,14 +132,12 @@ body {
 }
 
 .spreadsheet-area {
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    background-color: var(--excel-bg);
-    padding: 10px;
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    min-height: 0; /* Allow proper flexbox sizing */
+    flex-grow: 1;
+    padding: 0;
+    width: 100%;
+    overflow: hidden;
 }
 
 .salary-section {
@@ -251,80 +243,84 @@ body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    background-color: var(--excel-cell);
-    border: 1px solid var(--excel-border);
+    background-color: white;
+    border: 2px solid #000000;
     overflow: hidden;
-    min-height: 300px; /* Ensure grid is visible on small screens */
+    min-height: 150px;
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    margin-bottom: 5px;
 }
 
 .column-headers {
     display: flex;
-    height: 35px; /* Increase height even more */
-    border-bottom: 2px solid #000000; /* Thicker bottom border */
-    position: relative;
-    background-color: var(--excel-bg);
-    user-select: none;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    height: 25px;
+    border-left: 1px solid #888;
+    width: 100%;
 }
 
 .corner-cell {
-    min-width: 60px;
-    width: 60px;
-    height: 35px; /* Match the row height */
-    border-right: 2px solid #000000; /* Thicker right border */
-    background-color: #c0c0c0; /* Same red as column headers */
-    color: #ffffff; /* Add white text color for better visibility */
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    height: 25px;
+    background-color: #c0c0c0;
+    border-right: 1px solid #888;
+    border-bottom: 1px solid #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
 }
 
 .column-header {
-    min-width: 120px;
-    width: 120px;
-    height: 35px; /* Match container height */
+    background-color: #c0c0c0;
+    border-right: 1px solid #888;
+    border-bottom: 1px solid #888;
+    border-top: 1px solid #888;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 2px solid #000000; /* Thicker right border */
-    background-color: #c0c0c0; /* Brighter red */
-    color: #ffffff; /* Change to white text for better visibility */
     font-weight: bold;
-    font-size: 14px; /* Slightly larger font */
-    position: relative;
-    user-select: none;
+    height: 25px;
     text-align: center;
-    flex-shrink: 0;
 }
 
-/* Add column-specific width styles to match data cells */
-.column-header:nth-child(2) {  /* A */
-    min-width: 110px;
-    width: 110px;
+/* Column specific widths for better usability with data */
+.column-header:nth-child(2) {  /* A - Date */
+    min-width: 80px;
+    width: 80px;
 }
 
-.column-header:nth-child(3) {  /* B */
-    min-width: 200px;
-    width: 200px;  /* Description column - wider */
+.column-header:nth-child(3) {  /* B - Description */
+    min-width: 140px;
+    width: 140px;
 }
 
-.column-header:nth-child(4) {  /* C */
-    min-width: 120px;
-    width: 120px;
-}
-
-.column-header:nth-child(5) {  /* D */
-    min-width: 120px;
-    width: 120px;
-}
-
-.column-header:nth-child(6) {  /* E */
+.column-header:nth-child(4) {  /* C - Amount (USD) */
     min-width: 100px;
     width: 100px;
 }
 
-.column-header:nth-child(7) {  /* F */
+.column-header:nth-child(5) {  /* D - Amount (ARS) */
     min-width: 100px;
     width: 100px;
+}
+
+.column-header:nth-child(6) {  /* E - Currency */
+    min-width: 80px;
+    width: 80px;
+}
+
+.column-header:nth-child(7) {  /* F - Category */
+    min-width: 120px;
+    width: 120px;
+}
+
+.column-header:nth-child(8) {  /* G - Actions */
+    min-width: 80px;
+    width: 80px;
 }
 
 .column-header::after {
@@ -341,121 +337,139 @@ body {
 .grid-with-row-headers {
     display: flex;
     flex-grow: 1;
-    overflow: auto;
-    align-items: flex-start;
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-    touch-action: pan-x pan-y; /* Improve touch scrolling */
+    overflow-y: scroll;
+    overflow-x: hidden;
+    border-top: 1px solid #888;
+    position: relative;
+    width: 100%;
     max-width: 100%;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.grid-with-row-headers::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 .row-headers {
     display: flex;
     flex-direction: column;
-    min-width: 60px;
-    width: 60px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
     flex-shrink: 0;
-    background-color: var(--excel-bg);
 }
 
 .row-header {
-    height: 25px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    height: 21px;
+    min-height: 21px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 2px solid #000000; /* Match column header border */
-    border-bottom: 1px solid var(--excel-grid-line);
-    background-color: #c0c0c0; /* Match column header color */
-    color: #000000; /* Change to white text for better visibility */
+    background-color: #c0c0c0;
+    border-right: 1px solid #888;
+    border-bottom: 1px solid #888;
     font-weight: bold;
-    position: relative;
-    user-select: none;
     text-align: center;
-}
-
-.row-header::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    height: 4px;
-    cursor: row-resize;
-    z-index: 1;
+    flex-shrink: 0;
 }
 
 .grid {
     display: flex;
     flex-direction: column;
+    width: 100%;
     flex-grow: 1;
-    min-width: min-content; /* Ensure all content is visible */
+    min-width: 0;
+    max-width: 100%;
 }
 
 .grid-row {
     display: flex;
-    height: 25px;
+    width: 100%;
+    min-height: 21px;
+    border-bottom: 1px solid #888;
     flex-shrink: 0;
+    max-width: 100%;
 }
 
 .grid-cell {
-    min-width: 120px;
-    width: 120px;
-    height: 25px;
-    border-right: 1px solid var(--excel-grid-line);
-    border-bottom: 1px solid var(--excel-grid-line);
+    border-right: 1px solid #888;
     padding: 2px 4px;
-    white-space: nowrap;
+    min-height: 21px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
     background-color: white;
-    flex-shrink: 0;
 }
 
 /* Special styling for header row */
 .grid-cell[data-row="1"] {
-    background-color: #c0c0c0;
-    color: #000000; /* Change to white text for better visibility */
-    font-weight: bold;
-    border-bottom: 2px solid #000000;
-    border-right: 2px solid #000000;
-    height: 35px;
+    background-color: var(--excel-header-bg);
+    color: #000000;
+    font-weight: normal;
+    height: 25px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 12px;
 }
 
 /* Column-specific styling */
 .grid-cell[data-col="A"] {
-    min-width: 110px;
-    width: 110px;
+    min-width: 80px;
+    width: 80px;
     text-align: center;
 }
 
 .grid-cell[data-col="B"] {
-    min-width: 200px;
-    width: 200px;  /* Description column - wider */
+    min-width: 140px;
+    width: 140px;
     text-align: left;
-    padding-left: 8px;
+    padding-left: 4px;
 }
 
 .grid-cell[data-col="C"],
 .grid-cell[data-col="D"] {
-    min-width: 120px;
-    width: 120px;
-    text-align: right;
-    padding-right: 10px;
-}
-
-.grid-cell[data-col="E"],
-.grid-cell[data-col="F"] {
     min-width: 100px;
     width: 100px;
+    text-align: right;
+    padding-right: 4px;
+}
+
+.grid-cell[data-col="E"] {
+    min-width: 80px;
+    width: 80px;
+    text-align: center;
+}
+
+.grid-cell[data-col="F"] {
+    min-width: 120px;
+    width: 120px;
+    text-align: left;
+    padding-left: 4px;
+}
+
+.grid-cell[data-col="G"] {
+    min-width: 80px;
+    width: 80px;
     text-align: center;
 }
 
 .grid-cell.selected {
     background-color: var(--excel-cell-selected);
     color: var(--excel-header-text);
+}
+
+/* Make sure Delete links in the grid stand out */
+.grid-cell a {
+    color: #FF0000;
+    text-decoration: none;
+    font-weight: bold;
 }
 
 .grid-cell.bold {
@@ -467,41 +481,54 @@ body {
 }
 
 .summary-section {
-    margin-top: 10px;
-    padding: 5px;
-    background-color: var(--excel-cell);
-    border: 1px solid var(--excel-border);
-}
-
-.summary-row {
-    margin-bottom: 5px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 5px;
+    flex-direction: column;
+    margin-top: 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #888;
+    padding: 8px;
+    width: 100%;
 }
 
 .budget-row {
     display: flex;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
+    width: 100%;
+    margin-bottom: 5px;
 }
 
 .budget-column {
     flex: 1;
     padding: 0 15px;
-    min-width: 250px;
 }
 
 .budget-column:first-child {
-    border-right: 1px solid var(--excel-grid-line);
+    border-right: 1px solid #888;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    padding: 4px;
+    background-color: white;
+    border: 1px solid #ddd;
 }
 
 .summary-label {
     font-weight: bold;
     margin-right: 10px;
+    color: #000080;
+}
+
+/* Estilo para los valores */
+#remaining-usd, #total-usd, #remaining-ars, #total-ars {
+    font-weight: bold;
+}
+
+/* Color rojo para presupuesto negativo */
+#remaining-usd.negative, #remaining-ars.negative {
+    color: #ff0000;
 }
 
 .excel-statusbar {
@@ -812,7 +839,8 @@ button:active {
     
     .spreadsheet-area {
         /* Ensure scrolling works on iOS */
-        overflow-y: scroll;
+        overflow-y: auto;
+        overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
     }
     
@@ -821,12 +849,26 @@ button:active {
         flex: 1;
         min-height: 50vh;
         min-height: calc(var(--vh, 1vh) * 50);
+        overflow: hidden;
     }
     
     .grid-with-row-headers {
         /* Improve scrolling on iOS */
-        overflow: scroll;
+        overflow-y: scroll;
+        overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+    }
+    
+    .grid-with-row-headers::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+    
+    .grid {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
     }
 }
 
@@ -835,6 +877,11 @@ button:active {
     .grid-container {
         min-height: 40vh;
         min-height: calc(var(--vh, 1vh) * 40);
+        margin-bottom: 5px; /* Asegurar margen reducido en modo paisaje */
+    }
+    
+    .summary-section {
+        margin-top: 5px; /* Asegurar margen reducido en modo paisaje */
     }
     
     .salary-section, .expense-form, .exchange-rate-info {
@@ -847,16 +894,24 @@ button:active {
 @media screen and (max-width: 767px) {
     /* These styles will only apply to mobile devices */
     .grid-with-row-headers {
-        overflow: auto !important;
+        overflow-y: scroll !important;
+        overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch !important;
         overscroll-behavior: contain;
         width: 100%;
         max-width: 100vw;
+        scrollbar-width: none !important; /* Firefox */
+        -ms-overflow-style: none !important; /* IE and Edge */
+    }
+    
+    .grid-with-row-headers::-webkit-scrollbar {
+        display: none !important; /* Chrome, Safari, Opera */
     }
     
     .grid {
-        width: max-content;
-        min-width: max-content;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
     }
     
     /* Sticky headers for better navigation */
@@ -892,9 +947,16 @@ button:active {
     
     /* Special class for touchable grid */
     .touch-scrollable {
-        overflow: auto !important;
+        overflow-y: scroll !important;
+        overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch !important;
-        touch-action: pan-x pan-y !important;
+        touch-action: pan-y !important;
+        scrollbar-width: none !important; /* Firefox */
+        -ms-overflow-style: none !important; /* IE and Edge */
+    }
+    
+    .touch-scrollable::-webkit-scrollbar {
+        display: none !important; /* Chrome, Safari, Opera */
     }
 }
 
@@ -1096,4 +1158,281 @@ button:active {
 
 .adjustment-total.invalid {
     color: red;
+}
+
+/* Menu navigation styles */
+.excel-menubar .menu-item {
+    cursor: pointer;
+    padding: 2px 8px;
+    margin-right: 10px;
+    color: black;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.excel-menubar .menu-item:hover {
+    background-color: #000080;
+    color: white;
+}
+
+.excel-menubar .menu-item.active {
+    background-color: #000080;
+    color: white;
+}
+
+/* Todo list styles */
+.todo-header {
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.date-selector {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 5px;
+    background-color: var(--excel-cell);
+    padding: 8px;
+    border: 1px solid var(--excel-border);
+}
+
+.date-selector button.active {
+    background-color: var(--excel-header);
+    color: white;
+    border-style: inset;
+}
+
+.date-input {
+    padding: 2px 4px;
+    border: 1px inset var(--excel-border);
+    font-family: 'Courier New', monospace;
+}
+
+.todo-form {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: var(--excel-cell);
+    border: 1px solid var(--excel-border);
+}
+
+.todo-form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.todo-form-row label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.todo-form-row input[type="text"] {
+    flex: 1;
+    background-color: white;
+    border: 2px inset #808080;
+    height: 24px;
+    font-family: 'MS Sans Serif', Arial, sans-serif;
+    padding: 2px 6px;
+}
+
+.todo-list {
+    background-color: white;
+    border: 2px inset #808080;
+    min-height: 200px;
+    margin-bottom: 20px;
+    overflow-y: auto;
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 5px;
+    background-color: var(--excel-cell);
+    border: 1px solid var(--excel-border);
+    position: relative;
+}
+
+.todo-item:last-child {
+    border-bottom: none;
+}
+
+.todo-checkbox {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.todo-text {
+    flex: 1;
+    font-family: 'MS Sans Serif', Arial, sans-serif;
+}
+
+.todo-completed .todo-text {
+    text-decoration: line-through;
+    color: #888;
+}
+
+.todo-date {
+    font-size: 0.8em;
+    color: #666;
+    margin-right: 10px;
+}
+
+.todo-delete {
+    color: #f00;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.todo-stats {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    background-color: var(--excel-cell);
+    border: 1px solid var(--excel-border);
+    padding: 10px;
+}
+
+.todo-chart-container {
+    background-color: white;
+    border: 1px solid var(--excel-border);
+    padding: 10px;
+    height: 250px;
+    position: relative;
+    overflow: hidden;
+}
+
+.refresh-button {
+    background-color: var(--excel-bg);
+    border: 2px outset var(--excel-border);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 16px;
+    padding: 0;
+}
+
+.refresh-button:active {
+    border-style: inset;
+}
+
+.todo-add-subtask {
+    margin-left: 5px;
+    margin-right: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border-radius: 3px;
+}
+
+.todo-copy {
+    margin-left: 5px;
+    cursor: pointer;
+    color: var(--excel-header);
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.todo-time-tracking {
+    margin-left: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--excel-header);
+}
+
+.time-spent-display {
+    font-size: 0.85em;
+    color: #555;
+    margin-left: 10px;
+}
+
+/* Time tracking modal */
+.time-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.time-modal-content {
+    background-color: var(--excel-bg);
+    padding: 20px;
+    border: 1px solid var(--excel-border);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    width: 300px;
+    max-width: 90%;
+}
+
+/* Copy task modal */
+.copy-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.copy-modal-content {
+    background-color: var(--excel-bg);
+    padding: 20px;
+    border: 1px solid var(--excel-border);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    width: 300px;
+    max-width: 90%;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 480px) {
+    .todo-form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .todo-form-row label {
+        margin-bottom: 5px;
+    }
+    
+    .todo-form-row input[type="text"],
+    .todo-form-row input[type="date"] {
+        margin-bottom: 8px;
+        width: 100%;
+    }
+    
+    .date-selector {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .date-selector input,
+    .date-selector button {
+        width: 100%;
+        margin-bottom: 5px;
+    }
 } 

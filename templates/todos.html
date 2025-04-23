@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Retro Money">
+    <meta name="theme-color" content="#000080">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+    <title>Excel 2.0 (1987) Todo List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/excel-retro.css') }}">
+    
+    <!-- Mobile device detection and conditional CSS loading -->
+    <script type="text/javascript">
+        var isMobileDevice = /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
+        
+        if (isMobileDevice) {
+            // This is a mobile device, load mobile specific CSS
+            document.write('<link rel="stylesheet" href="{{ url_for("static", filename="css/mobile-fix.css") }}">');
+            // Mark the body as mobile
+            document.addEventListener('DOMContentLoaded', function() {
+                document.body.classList.add('mobile-device');
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="excel-container">
+        <div class="excel-header">
+            <div class="excel-title">Microsoft Excel 2.0</div>
+            <div class="excel-menubar">
+                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}">Expense Tracker</a>
+                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}">Todo List</a>
+            </div>
+        </div>
+        
+        <!-- <div class="excel-toolbar">
+            <div class="toolbar-button bold">B</div>
+            <div class="toolbar-button italic">I</div>
+            <div class="toolbar-button">$</div>
+            <div class="toolbar-button">%</div>
+            <div class="toolbar-separator"></div>
+            <div class="cell-formula-bar">
+                <span>Formula: </span>
+                <input type="text" id="formula-input" />
+            </div>
+        </div> -->
+        
+        <div class="spreadsheet-area">
+            <div class="todo-header">
+                <h2>My Todo List</h2>
+                <div class="date-selector">
+                    <label for="date-filter">View tasks for:</label>
+                    <input type="date" id="date-filter" class="date-input">
+                    <button id="view-date-tasks">View</button>
+                    <button id="view-all-tasks">View All</button>
+                </div>
+            </div>
+            
+            <div class="todo-form">
+                <div class="form-title">Add New Task</div>
+                <div class="todo-form-row">
+                    <label for="todo-desc">Task Description:</label>
+                    <input type="text" id="todo-desc" placeholder="Enter a task...">
+                    <label for="task-date">Date:</label>
+                    <input type="date" id="task-date" class="date-input">
+                    <button id="add-todo">Add</button>
+                </div>
+            </div>
+            
+            <div class="todo-list" id="todo-list">
+                <!-- Todo items will be populated by JavaScript -->
+            </div>
+            
+            <div class="todo-stats">
+                <div class="form-title">Weekly Task Completion</div>
+                <div class="todo-chart-container">
+                    <canvas id="todo-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="excel-statusbar">
+            <div class="status-cell">READY</div>
+            <div class="status-help">Press F1 for Help</div>
+        </div>
+    </div>
+    
+    <!-- Add Subtask Modal -->
+    <div id="subtask-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Add Subtask</div>
+            <div class="subtask-form">
+                <input type="text" id="subtask-desc" placeholder="Enter subtask description...">
+                <input type="hidden" id="parent-task-id">
+                <div class="modal-actions">
+                    <button id="save-subtask">Add</button>
+                    <button id="cancel-subtask">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Copy Task Modal -->
+    <div id="copy-modal" class="copy-modal">
+        <div class="copy-modal-content">
+            <div class="modal-title">Copy Task to Another Date</div>
+            <div class="copy-form">
+                <div class="form-row">
+                    <label for="copy-date">Select Target Date:</label>
+                    <input type="date" id="copy-date" class="date-input">
+                </div>
+                <div class="form-row">
+                    <label>
+                        <input type="checkbox" id="copy-with-subtasks"> Include subtasks
+                    </label>
+                </div>
+                <input type="hidden" id="copy-task-id">
+                <div class="modal-actions">
+                    <button id="save-copy">Copy</button>
+                    <button id="cancel-copy">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Time Tracking Modal -->
+    <div id="time-modal" class="time-modal">
+        <div class="time-modal-content">
+            <div class="modal-title">Time Spent on Task</div>
+            <div class="time-form">
+                <div class="form-row">
+                    <label for="time-spent">Minutes spent:</label>
+                    <input type="number" id="time-spent" min="0" class="time-input">
+                </div>
+                <input type="hidden" id="time-task-id">
+                <div class="modal-actions">
+                    <button id="save-time">Save</button>
+                    <button id="cancel-time">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app-storage.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const todoInput = document.getElementById('todo-desc');
+            const taskDateInput = document.getElementById('task-date');
+            const addTodoButton = document.getElementById('add-todo');
+            const todoList = document.getElementById('todo-list');
+            const todoChart = document.getElementById('todo-chart');
+            
+            // Date filter elements
+            const dateFilterInput = document.getElementById('date-filter');
+            const viewDateTasksButton = document.getElementById('view-date-tasks');
+            const viewAllTasksButton = document.getElementById('view-all-tasks');
+            
+            // Subtask Modal Elements
+            const subtaskModal = document.getElementById('subtask-modal');
+            const subtaskInput = document.getElementById('subtask-desc');
+            const parentTaskIdInput = document.getElementById('parent-task-id');
+            const saveSubtaskButton = document.getElementById('save-subtask');
+            const cancelSubtaskButton = document.getElementById('cancel-subtask');
+            
+            // Copy Modal Elements
+            const copyModal = document.getElementById('copy-modal');
+            const copyDateInput = document.getElementById('copy-date');
+            const copyWithSubtasksCheckbox = document.getElementById('copy-with-subtasks');
+            const copyTaskIdInput = document.getElementById('copy-task-id');
+            const saveCopyButton = document.getElementById('save-copy');
+            const cancelCopyButton = document.getElementById('cancel-copy');
+            
+            // Time Modal Elements
+            const timeModal = document.getElementById('time-modal');
+            const timeSpentInput = document.getElementById('time-spent');
+            const timeTaskIdInput = document.getElementById('time-task-id');
+            const saveTimeButton = document.getElementById('save-time');
+            const cancelTimeButton = document.getElementById('cancel-time');
+            
+            // Set default date values to today
+            const today = new Date().toISOString().split('T')[0];
+            taskDateInput.value = today;
+            dateFilterInput.value = today;
+            copyDateInput.value = today;
+            
+            // Chart setup
+            let todoChartInstance = null;
+            
+            // Current filter state
+            let currentDateFilter = null;
+            
+            // Get todos from API with optional date filter
+            function loadTodos(forceRefresh = false) {
+                AppStorage.todos.get(function(todos) {
+                    // Filter todos by date if a filter is set
+                    if (currentDateFilter) {
+                        const filteredTodos = todos.filter(todo => 
+                            todo.planned_date === currentDateFilter
+                        );
+                        renderTodos(filteredTodos);
+                    } else {
+                        renderTodos(todos);
+                    }
+                }, forceRefresh);
+            }
+            
+            // Render todos in the list
+            function renderTodos(todos) {
+                todoList.innerHTML = '';
+                
+                if (todos.length === 0) {
+                    todoList.innerHTML = '<div class="todo-item"><div class="todo-text">No tasks yet. Add one above!</div></div>';
+                    return;
+                }
+                
+                // First render top-level tasks (no parent)
+                const topLevelTodos = todos.filter(todo => !todo.parent_id);
+                
+                topLevelTodos.forEach(todo => {
+                    renderTodoItem(todo, todos);
+                });
+            }
+            
+            // Render a todo item with its subtasks
+            function renderTodoItem(todo, allTodos, container = todoList) {
+                const todoItem = document.createElement('div');
+                todoItem.className = `todo-item ${todo.is_completed ? 'todo-completed' : ''}`;
+                todoItem.setAttribute('data-id', todo.id);
+                todoItem.setAttribute('data-level', todo.level);
+                
+                // Add indentation based on level
+                todoItem.style.marginLeft = `${todo.level * 20}px`;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'todo-checkbox';
+                checkbox.checked = todo.is_completed;
+                checkbox.addEventListener('change', () => toggleTodo(todo.id));
+                
+                const todoText = document.createElement('div');
+                todoText.className = 'todo-text';
+                todoText.textContent = todo.description;
+                
+                const todoDate = document.createElement('div');
+                todoDate.className = 'todo-date';
+                if (todo.is_completed && todo.completed_date) {
+                    todoDate.textContent = `Completed: ${formatDate(todo.completed_date)}`;
+                } else if (todo.planned_date) {
+                    todoDate.textContent = `Planned: ${formatDate(todo.planned_date)}`;
+                } else {
+                    todoDate.textContent = `Created: ${formatDate(todo.created_date)}`;
+                }
+                
+                // Show time spent if any
+                const timeSpentDisplay = document.createElement('div');
+                timeSpentDisplay.className = 'time-spent-display';
+                if (todo.time_spent > 0) {
+                    timeSpentDisplay.textContent = `${todo.time_spent} min`;
+                }
+                
+                const addSubtaskBtn = document.createElement('span');
+                addSubtaskBtn.className = 'todo-add-subtask';
+                addSubtaskBtn.textContent = '➕';
+                addSubtaskBtn.title = 'Add Subtask';
+                addSubtaskBtn.addEventListener('click', () => showAddSubtaskModal(todo.id));
+                
+                const copyBtn = document.createElement('span');
+                copyBtn.className = 'todo-copy';
+                copyBtn.textContent = '📋';
+                copyBtn.title = 'Copy to Another Date';
+                copyBtn.addEventListener('click', () => showCopyModal(todo.id));
+                
+                const timeBtn = document.createElement('span');
+                timeBtn.className = 'todo-time-tracking';
+                timeBtn.textContent = '⏱️';
+                timeBtn.title = 'Track Time Spent';
+                timeBtn.addEventListener('click', () => showTimeModal(todo.id, todo.time_spent));
+                
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'todo-delete';
+                deleteBtn.textContent = '❌';
+                deleteBtn.title = 'Delete Task';
+                deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
+                
+                todoItem.appendChild(checkbox);
+                todoItem.appendChild(todoText);
+                todoItem.appendChild(todoDate);
+                if (todo.time_spent > 0) {
+                    todoItem.appendChild(timeSpentDisplay);
+                }
+                todoItem.appendChild(timeBtn);
+                todoItem.appendChild(copyBtn);
+                todoItem.appendChild(addSubtaskBtn);
+                todoItem.appendChild(deleteBtn);
+                
+                container.appendChild(todoItem);
+                
+                // Render subtasks if any
+                const subtasks = allTodos.filter(t => t.parent_id === todo.id);
+                if (subtasks.length > 0) {
+                    const subtasksContainer = document.createElement('div');
+                    subtasksContainer.className = 'subtasks-container';
+                    container.appendChild(subtasksContainer);
+                    
+                    subtasks.forEach(subtask => {
+                        renderTodoItem(subtask, allTodos, subtasksContainer);
+                    });
+                }
+            }
+            
+            // Format date to a more readable format
+            function formatDate(dateString) {
+                if (!dateString) return '';
+                
+                const date = new Date(dateString + 'T00:00:00'); // Add time component to prevent timezone issues
+                return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            }
+            
+            // Add a new todo item
+            function addTodo() {
+                const description = todoInput.value.trim();
+                const plannedDate = taskDateInput.value;
+                
+                if (description === '') {
+                    alert('Please enter a task description');
+                    return;
+                }
+                
+                fetch('/api/todos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        description: description,
+                        planned_date: plannedDate
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        todoInput.value = '';
+                        
+                        // If we're filtering by date and the new todo matches that date,
+                        // or if we're not filtering, reload the todos
+                        if (!currentDateFilter || plannedDate === currentDateFilter) {
+                            loadTodos(true);
+                        }
+                        
+                        updateWeeklyStats();
+                    } else {
+                        alert('Error adding task: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adding todo:', error);
+                    alert('Error adding task. Please try again.');
+                });
+            }
+            
+            // Show modal to add subtask
+            function showAddSubtaskModal(parentId) {
+                parentTaskIdInput.value = parentId;
+                subtaskInput.value = '';
+                subtaskModal.style.display = 'flex';
+            }
+            
+            // Add a new subtask
+            function addSubtask() {
+                const description = subtaskInput.value.trim();
+                const parentId = parseInt(parentTaskIdInput.value);
+                
+                if (description === '') {
+                    alert('Please enter a subtask description');
+                    return;
+                }
+                
+                // Use either the current filter date or parent's planned date
+                const plannedDate = currentDateFilter || '';
+                
+                fetch('/api/todos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        description: description,
+                        parent_id: parentId,
+                        planned_date: plannedDate
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        subtaskModal.style.display = 'none';
+                        loadTodos(true);
+                    } else {
+                        alert('Error adding subtask: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adding subtask:', error);
+                    alert('Error adding subtask. Please try again.');
+                });
+            }
+            
+            // Show modal to copy task
+            function showCopyModal(taskId) {
+                copyTaskIdInput.value = taskId;
+                copyDateInput.value = new Date().toISOString().split('T')[0]; // Default to today
+                copyWithSubtasksCheckbox.checked = true;
+                copyModal.style.display = 'flex';
+            }
+            
+            // Copy a task to another date
+            function copyTask() {
+                const taskId = parseInt(copyTaskIdInput.value);
+                const targetDate = copyDateInput.value;
+                const copySubtasks = copyWithSubtasksCheckbox.checked;
+                
+                if (!targetDate) {
+                    alert('Please select a target date');
+                    return;
+                }
+                
+                fetch(`/api/todos/${taskId}/copy`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        target_date: targetDate,
+                        copy_subtasks: copySubtasks
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        copyModal.style.display = 'none';
+                        
+                        // If we're filtering by date and copied to that date, 
+                        // or if we're not filtering, reload the todos
+                        if (!currentDateFilter || targetDate === currentDateFilter) {
+                            loadTodos(true);
+                        } else {
+                            // Optionally switch to the target date view
+                            if (confirm('Task copied successfully. Would you like to view tasks for the target date?')) {
+                                dateFilterInput.value = targetDate;
+                                filterByDate();
+                            }
+                        }
+                    } else {
+                        alert('Error copying task: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error copying task:', error);
+                    alert('Error copying task. Please try again.');
+                });
+            }
+            
+            // Show modal to track time
+            function showTimeModal(taskId, currentTime) {
+                timeTaskIdInput.value = taskId;
+                timeSpentInput.value = currentTime || 0;
+                timeModal.style.display = 'flex';
+            }
+            
+            // Save time spent on task
+            function saveTimeSpent() {
+                const taskId = parseInt(timeTaskIdInput.value);
+                const timeSpent = parseInt(timeSpentInput.value) || 0;
+                
+                if (timeSpent < 0) {
+                    alert('Time spent cannot be negative');
+                    return;
+                }
+                
+                fetch(`/api/todos/${taskId}/time`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        time_spent: timeSpent
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        timeModal.style.display = 'none';
+                        loadTodos(true);
+                    } else {
+                        alert('Error saving time: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving time:', error);
+                    alert('Error saving time. Please try again.');
+                });
+            }
+            
+            // Toggle todo completion status
+            function toggleTodo(id) {
+                fetch(`/api/todos/${id}/toggle`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        loadTodos(true);
+                        updateWeeklyStats();
+                    } else {
+                        alert('Error toggling task: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error toggling todo:', error);
+                    alert('Error toggling task. Please try again.');
+                });
+            }
+            
+            // Delete a todo
+            function deleteTodo(id) {
+                if (confirm('Are you sure you want to delete this task? This will also delete all subtasks.')) {
+                    fetch(`/api/todos/${id}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            loadTodos(true);
+                            updateWeeklyStats();
+                        } else {
+                            alert('Error deleting task: ' + (data.message || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error deleting todo:', error);
+                        alert('Error deleting task. Please try again.');
+                    });
+                }
+            }
+            
+            // Update the weekly stats chart
+            function updateWeeklyStats() {
+                AppStorage.todos.getWeeklyStats(function(stats) {
+                    if (todoChartInstance) {
+                        todoChartInstance.destroy();
+                    }
+                    
+                    const labels = stats.map(day => day.date);
+                    const data = stats.map(day => day.completed);
+                    
+                    todoChartInstance = new Chart(todoChart, {
+                        type: 'bar',
+                        data: {
+                            labels: labels.map(formatDate),
+                            datasets: [{
+                                label: 'Tasks Completed',
+                                data: data,
+                                backgroundColor: '#000080',
+                                borderColor: '#000080',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }, true);
+            }
+            
+            // Filter todos by date
+            function filterByDate() {
+                const selectedDate = dateFilterInput.value;
+                if (selectedDate) {
+                    currentDateFilter = selectedDate;
+                    
+                    // Update UI to show the current filter
+                    document.getElementById('view-date-tasks').classList.add('active');
+                    document.getElementById('view-all-tasks').classList.remove('active');
+                    
+                    // Update the task date input to match the filter
+                    taskDateInput.value = selectedDate;
+                    
+                    loadTodos(true);
+                }
+            }
+            
+            // Show all todos
+            function showAllTodos() {
+                currentDateFilter = null;
+                
+                // Update UI to show the current filter status
+                document.getElementById('view-date-tasks').classList.remove('active');
+                document.getElementById('view-all-tasks').classList.add('active');
+                
+                // Update the task date input to today
+                const today = new Date().toISOString().split('T')[0];
+                taskDateInput.value = today;
+                
+                loadTodos(true);
+            }
+            
+            // Event Listeners
+            addTodoButton.addEventListener('click', addTodo);
+            
+            // Handle Enter key in todo input
+            todoInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addTodo();
+                }
+            });
+            
+            // Handle Enter key in subtask input
+            subtaskInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addSubtask();
+                }
+            });
+            
+            // Subtask Modal
+            saveSubtaskButton.addEventListener('click', addSubtask);
+            cancelSubtaskButton.addEventListener('click', () => {
+                subtaskModal.style.display = 'none';
+            });
+            
+            // Copy Modal
+            saveCopyButton.addEventListener('click', copyTask);
+            cancelCopyButton.addEventListener('click', () => {
+                copyModal.style.display = 'none';
+            });
+            
+            // Time Modal
+            saveTimeButton.addEventListener('click', saveTimeSpent);
+            cancelTimeButton.addEventListener('click', () => {
+                timeModal.style.display = 'none';
+            });
+            
+            // Date Filter
+            viewDateTasksButton.addEventListener('click', filterByDate);
+            viewAllTasksButton.addEventListener('click', showAllTodos);
+            
+            // Close modals when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === subtaskModal) {
+                    subtaskModal.style.display = 'none';
+                }
+                if (event.target === copyModal) {
+                    copyModal.style.display = 'none';
+                }
+                if (event.target === timeModal) {
+                    timeModal.style.display = 'none';
+                }
+            });
+            
+            // Initialize
+            loadTodos(true);
+            updateWeeklyStats();
+        });
+    </script>
+    
+    <!-- Mobile-specific JS - only loaded on mobile devices -->
+    <script type="text/javascript">
+        if (/iPhone|iPad|iPod|Android/.test(navigator.userAgent)) {
+            // Load mobile-specific enhancements
+            const script = document.createElement('script');
+            script.src = "{{ url_for('static', filename='js/mobile-fix.js') }}";
+            document.body.appendChild(script);
+        }
+    </script>
+    
+    <!-- Add custom CSS for hierarchical todos -->
+    <style>
+        .todo-item {
+            position: relative;
+            transition: margin-left 0.3s;
+        }
+        
+        .subtasks-container {
+            margin-left: 20px;
+        }
+        
+        .todo-add-subtask {
+            cursor: pointer;
+            font-weight: bold;
+            margin: 0 10px;
+            color: #000080;
+            font-size: 1.2em;
+        }
+        
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 100;
+        }
+        
+        .modal-content {
+            background-color: #c0c0c0;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #000;
+            width: 50%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        }
+        
+        .modal-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .modal-actions {
+            margin-top: 15px;
+            text-align: right;
+        }
+        
+        .modal-actions button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        
+        #subtask-desc {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</body>
+</html> 

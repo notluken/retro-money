@@ -36,15 +36,23 @@
             }
             
             body.mobile-device .grid-with-row-headers {
-                overflow: hidden !important;
+                overflow-y: scroll !important;
+                overflow-x: hidden !important;
                 -webkit-overflow-scrolling: touch !important;
                 touch-action: manipulation !important;
                 overscroll-behavior: auto !important;
+                scrollbar-width: none !important; /* Firefox */
+                -ms-overflow-style: none !important; /* IE and Edge */
+            }
+            
+            body.mobile-device .grid-with-row-headers::-webkit-scrollbar {
+                display: none !important; /* Chrome, Safari, Opera */
             }
             
             body.mobile-device .grid {
-                min-width: max-content !important;
-                width: max-content !important;
+                min-width: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
             }
             
             body.mobile-device .corner-cell {
@@ -65,14 +73,8 @@
             body.mobile-device .column-header {
                 position: sticky !important;
                 top: 0 !important;
-                z-index: 5 !important;
+                z-index: 2 !important;
                 background-color: #c0c0c0 !important;
-            }
-            
-            /* Hide scrollbars completely */
-            body.mobile-device .grid-with-row-headers {
-                overflow: hidden !important;
-                -webkit-overflow-scrolling: touch !important;
             }
         }
     </style>
@@ -137,17 +139,29 @@
                 const grid = document.querySelector('.grid');
                 
                 if (gridContainer && gridWithRowHeaders && grid) {
-                    // Hide scrolling completely
-                    gridWithRowHeaders.style.overflow = 'hidden';
+                    // Set vertical scrolling only
+                    gridWithRowHeaders.style.overflowY = 'scroll';
+                    gridWithRowHeaders.style.overflowX = 'hidden';
                     gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
                     
-                    // Force grid to be wider
-                    grid.style.minWidth = 'max-content';
-                    grid.style.width = 'max-content';
+                    // Hide scrollbar
+                    gridWithRowHeaders.style.scrollbarWidth = 'none';
+                    gridWithRowHeaders.style.msOverflowStyle = 'none';
+                    
+                    // Force grid to fixed width
+                    grid.style.minWidth = '0';
+                    grid.style.width = '100%';
+                    grid.style.maxWidth = '100%';
                     
                     // Apply these styles multiple times to ensure they take effect
                     const applyScrollStyles = () => {
-                        gridWithRowHeaders.style.overflow = 'hidden';
+                        gridWithRowHeaders.style.overflowY = 'scroll';
+                        gridWithRowHeaders.style.overflowX = 'hidden';
+                        gridWithRowHeaders.style.scrollbarWidth = 'none';
+                        gridWithRowHeaders.style.msOverflowStyle = 'none';
+                        grid.style.minWidth = '0';
+                        grid.style.width = '100%';
+                        grid.style.maxWidth = '100%';
                     };
                     
                     applyScrollStyles();
@@ -155,9 +169,9 @@
                     setTimeout(applyScrollStyles, 500);
                     setTimeout(applyScrollStyles, 1000);
                     
-                    // Handle touch events specifically for horizontal scrolling
+                    // Handle touch events specifically for vertical scrolling only
                     gridWithRowHeaders.addEventListener('touchmove', function(e) {
-                        // Don't block scrolling
+                        // Allow vertical scrolling
                     }, { passive: true });
                 }
             });
@@ -169,25 +183,17 @@
         <div class="excel-header">
             <div class="excel-title">Microsoft Excel 2.0</div>
             <div class="excel-menubar">
-                <div class="menu-item">File</div>
-                <div class="menu-item">Edit</div>
-                <div class="menu-item">Data</div>
-                <div class="menu-item">Options</div>
-                <div class="menu-item">Help</div>
+                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}">Expense Tracker</a>
+                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}">Todo List</a>
             </div>
         </div>
         
-        <div class="excel-toolbar">
+        <!-- <div class="excel-toolbar">
             <div class="toolbar-button bold">B</div>
             <div class="toolbar-button italic">I</div>
             <div class="toolbar-button">$</div>
             <div class="toolbar-button">%</div>
-            <div class="toolbar-separator"></div>
-            <div class="cell-formula-bar">
-                <span>Formula: </span>
-                <input type="text" id="formula-input" />
-            </div>
-        </div>
+        </div> -->
         
         <div class="spreadsheet-area">
             <div class="salary-section">
@@ -197,7 +203,7 @@
             </div>
             
             <div class="budget-dashboard">
-                <div class="budget-title">60/20/10/10 Budget Dashboard</div>
+                <div class="budget-title">30/20/30/20 Budget Dashboard</div>
                 <div class="budget-actions">
                     <button id="adjust-budget">Adjust Budget Allocations</button>
                 </div>
@@ -258,11 +264,7 @@
                     <span id="exchange-rate">Loading...</span>
                     <span> ARS/USD</span>
                     <span class="rate-updated">(Updated: <span id="rate-updated">Loading...</span>)</span>
-                </div>
-                <div class="rate-selector">
-                    <span>Select USD Rate Type: </span>
-                    <button id="dolar-blue" class="rate-button active">Dolar Blue</button>
-                    <button id="dolar-tarjeta" class="rate-button">Dolar Tarjeta</button>
+                    <button id="refresh-rate" class="refresh-button">↺</button>
                 </div>
             </div>
             
@@ -276,14 +278,6 @@
                     <div class="column-header">E</div>
                     <div class="column-header">F</div>
                     <div class="column-header">G</div>
-                    <div class="column-header">H</div>
-                    <div class="column-header">I</div>
-                    <div class="column-header">J</div>
-                    <div class="column-header">K</div>
-                    <div class="column-header">L</div>
-                    <div class="column-header">M</div>
-                    <div class="column-header">N</div>
-                    <div class="column-header">O</div>
                 </div>
                 
                 <div class="grid-with-row-headers">
@@ -303,41 +297,6 @@
                         <div class="row-header">13</div>
                         <div class="row-header">14</div>
                         <div class="row-header">15</div>
-                        <div class="row-header">16</div>
-                        <div class="row-header">17</div>
-                        <div class="row-header">18</div>
-                        <div class="row-header">19</div>
-                        <div class="row-header">20</div>
-                        <div class="row-header">21</div>
-                        <div class="row-header">22</div>
-                        <div class="row-header">23</div>
-                        <div class="row-header">24</div>
-                        <div class="row-header">25</div>
-                        <div class="row-header">26</div>
-                        <div class="row-header">27</div>
-                        <div class="row-header">28</div>
-                        <div class="row-header">29</div>
-                        <div class="row-header">30</div>
-                        <div class="row-header">31</div>
-                        <div class="row-header">32</div>
-                        <div class="row-header">33</div>
-                        <div class="row-header">34</div>
-                        <div class="row-header">35</div>
-                        <div class="row-header">36</div>
-                        <div class="row-header">37</div>
-                        <div class="row-header">38</div>
-                        <div class="row-header">39</div>
-                        <div class="row-header">40</div>
-                        <div class="row-header">41</div>
-                        <div class="row-header">42</div>
-                        <div class="row-header">43</div>
-                        <div class="row-header">44</div>
-                        <div class="row-header">45</div>
-                        <div class="row-header">46</div>
-                        <div class="row-header">47</div>
-                        <div class="row-header">48</div>
-                        <div class="row-header">49</div>
-                        <div class="row-header">50</div>
                     </div>
                     
                     <div class="grid" id="expense-grid">
@@ -405,7 +364,86 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+    <script>
+        // Verificar que Chart.js esté disponible
+        window.chartJsLoaded = typeof Chart !== 'undefined';
+        console.log('Chart.js loaded:', window.chartJsLoaded);
+    </script>
+    <script src="{{ url_for('static', filename='js/app-storage.js') }}"></script>
     <script src="{{ url_for('static', filename='js/grid.js') }}"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Exchange rate elements
+            const exchangeRateElement = document.getElementById('exchange-rate');
+            const rateTypeElement = document.getElementById('rate-type');
+            const rateUpdatedElement = document.getElementById('rate-updated');
+            const refreshRateButton = document.getElementById('refresh-rate');
+            
+            // Budget chart element
+            const budgetChartElement = document.getElementById('budget-chart');
+            
+            // Load exchange rate based on active type or default to Blue
+            function loadExchangeRate(forceRefresh = false) {
+                const activeRateType = AppStorage.exchangeRate.getActiveType();
+                const type = activeRateType === 'tarjeta' ? 'tarjeta' : 'blue'; // Default to blue
+                
+                // Update UI for active rate type
+                if (type === 'blue') {
+                    rateTypeElement.textContent = 'Blue';
+                } else {
+                    rateTypeElement.textContent = 'Tarjeta';
+                }
+                
+                // Get rate from storage or API
+                AppStorage.exchangeRate.get(type, function(data) {
+                    if (data) {
+                        exchangeRateElement.textContent = data.usd_to_ars.toFixed(2);
+                        
+                        // Format date
+                        const updated = new Date(data.updated);
+                        const formattedDate = updated.toLocaleDateString() + ' ' + 
+                            updated.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        
+                        rateUpdatedElement.textContent = formattedDate;
+                    } else {
+                        exchangeRateElement.textContent = 'Error';
+                        rateUpdatedElement.textContent = 'N/A';
+                    }
+                }, forceRefresh);
+            }
+            
+            // Make sure Chart.js is ready before using it
+            function checkChartJsLoaded() {
+                if (typeof Chart !== 'undefined') {
+                    return true;
+                } else {
+                    console.warn('Chart.js not loaded yet. Waiting...');
+                    return false;
+                }
+            }
+            
+            // Force refresh budget allocations and charts
+            function refreshBudgetData() {
+                if (checkChartJsLoaded()) {
+                    AppStorage.budget.getAllocations(function(data) {
+                        // Refresh is handled in grid.js
+                    }, true); // Force refresh from API
+                } else {
+                    setTimeout(refreshBudgetData, 500);
+                }
+            }
+            
+            // Manual refresh button for exchange rate
+            refreshRateButton.addEventListener('click', function() {
+                loadExchangeRate(true); // Force refresh from API
+                refreshBudgetData(); // Refresh budget data too
+            });
+            
+            // Initialize
+            loadExchangeRate();
+        });
+    </script>
     
     <!-- Mobile-specific JS - only loaded on mobile devices -->
     <script type="text/javascript">

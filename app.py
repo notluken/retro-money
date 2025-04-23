@@ -2,8 +2,8 @@ import os
 import json
 import sqlite3
 import requests
-from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 app = Flask(__name__)
 
@@ -44,6 +44,48 @@ def init_db():
         FOREIGN KEY (category_id) REFERENCES budget_categories (id)
     )
     ''')
+    
+    # Check if todos table already exists
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='todos'")
+    todos_exists = c.fetchone() is not None
+    
+    if not todos_exists:
+        # Create todos table with parent_id for hierarchical structure
+        c.execute('''
+        CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            created_date TEXT NOT NULL,
+            completed_date TEXT,
+            is_completed INTEGER DEFAULT 0,
+            parent_id INTEGER DEFAULT NULL,
+            level INTEGER DEFAULT 0,
+            planned_date TEXT DEFAULT NULL,
+            time_spent INTEGER DEFAULT 0,
+            FOREIGN KEY (parent_id) REFERENCES todos (id) ON DELETE CASCADE
+        )
+        ''')
+    else:
+        # Check if we need to add new columns
+        c.execute("PRAGMA table_info(todos)")
+        columns = [col[1] for col in c.fetchall()]
+        
+        if "parent_id" not in columns:
+            c.execute("ALTER TABLE todos ADD COLUMN parent_id INTEGER DEFAULT NULL")
+            print("Added parent_id column to todos table")
+            
+        if "level" not in columns:
+            c.execute("ALTER TABLE todos ADD COLUMN level INTEGER DEFAULT 0")
+            print("Added level column to todos table")
+            
+        if "planned_date" not in columns:
+            c.execute("ALTER TABLE todos ADD COLUMN planned_date TEXT DEFAULT NULL")
+            print("Added planned_date column to todos table")
+            
+        if "time_spent" not in columns:
+            c.execute("ALTER TABLE todos ADD COLUMN time_spent INTEGER DEFAULT 0")
+            print("Added time_spent column to todos table")
+    
     conn.commit()
     
     # Add default user info if not exists
@@ -139,7 +181,11 @@ def migrate_data():
 # Routes
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', active_page="expenses")
+
+@app.route('/todos')
+def todos():
+    return render_template('todos.html', active_page="todos")
 
 @app.route('/api/salary', methods=['GET', 'POST'])
 def salary():
@@ -770,7 +816,372 @@ def add_expense():
     conn.close()
     return jsonify({"id": last_id, "status": "success"})
 
+@app.route('/api/todos', methods=['GET'])
+def get_todos():
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Get date filter from query parameters
+    date_filter = request.args.get('date', None)
+    
+    query = """
+        SELECT id, description, created_date, completed_date, is_completed, parent_id, level, planned_date, time_spent 
+        FROM todos 
+    """
+    
+    params = []
+    
+    # Apply date filter if provided
+    if date_filter:
+        query += " WHERE planned_date = ? OR planned_date IS NULL"
+        params.append(date_filter)
+    
+    query += " ORDER BY level, parent_id NULLS FIRST, is_completed, created_date DESC"
+    
+    c.execute(query, params)
+    
+    rows = c.fetchall()
+    todos = []
+    
+    # First build a flat list of todos
+    for row in rows:
+        todo = {
+            "id": row[0],
+            "description": row[1],
+            "created_date": row[2],
+            "completed_date": row[3],
+            "is_completed": bool(row[4]),
+            "parent_id": row[5],
+            "level": row[6],
+            "planned_date": row[7],
+            "time_spent": row[8],
+            "subtasks": []  # Will hold subtasks if any
+        }
+        todos.append(todo)
+    
+    conn.close()
+    
+    # Flat structure is easier to work with for the client
+    return jsonify(todos)
+
+@app.route('/api/todos', methods=['POST'])
+def add_todo():
+    data = request.json
+    description = data.get('description', '')
+    parent_id = data.get('parent_id', None)
+    planned_date = data.get('planned_date', None)
+    
+    if not description:
+        return jsonify({"status": "error", "message": "Description is required"}), 400
+    
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    now = datetime.now().strftime("%Y-%m-%d")
+    
+    # Default level is 0 (top-level task)
+    level = 0
+    
+    # If this is a subtask, get the parent's level and increment
+    if parent_id:
+        # Validate parent_id exists
+        c.execute("SELECT id, level FROM todos WHERE id = ?", (parent_id,))
+        parent = c.fetchone()
+        
+        if not parent:
+            conn.close()
+            return jsonify({"status": "error", "message": "Parent task not found"}), 404
+        
+        # Set level as parent level + 1
+        level = parent[1] + 1
+    
+    # Insert the new todo with hierarchical info
+    c.execute(
+        "INSERT INTO todos (description, created_date, is_completed, parent_id, level, planned_date) VALUES (?, ?, ?, ?, ?, ?)",
+        (description, now, 0, parent_id, level, planned_date)
+    )
+    
+    todo_id = c.lastrowid
+    conn.commit()
+    
+    new_todo = {
+        "id": todo_id,
+        "description": description,
+        "created_date": now,
+        "completed_date": None,
+        "is_completed": False,
+        "parent_id": parent_id,
+        "level": level,
+        "planned_date": planned_date,
+        "time_spent": 0,
+        "subtasks": []
+    }
+    
+    conn.close()
+    return jsonify({"status": "success", "todo": new_todo})
+
+@app.route('/api/todos/<int:todo_id>/toggle', methods=['POST'])
+def toggle_todo(todo_id):
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Get current todo state
+    c.execute("SELECT is_completed, level FROM todos WHERE id = ?", (todo_id,))
+    result = c.fetchone()
+    
+    if not result:
+        conn.close()
+        return jsonify({"status": "error", "message": "Todo not found"}), 404
+    
+    is_completed = not bool(result[0])
+    completed_date = datetime.now().strftime("%Y-%m-%d") if is_completed else None
+    
+    # Update this todo
+    c.execute(
+        "UPDATE todos SET is_completed = ?, completed_date = ? WHERE id = ?",
+        (1 if is_completed else 0, completed_date, todo_id)
+    )
+    
+    # If completing a task, also complete all subtasks
+    if is_completed:
+        # Use recursive CTE to find all descendant tasks
+        c.execute("""
+            WITH RECURSIVE subtasks(id) AS (
+                SELECT id FROM todos WHERE parent_id = ?
+                UNION ALL
+                SELECT t.id FROM todos t, subtasks s WHERE t.parent_id = s.id
+            )
+            UPDATE todos SET 
+                is_completed = 1, 
+                completed_date = ? 
+            WHERE id IN subtasks
+        """, (todo_id, completed_date))
+    
+    conn.commit()
+    
+    # Get updated todos to return
+    c.execute("""
+        SELECT id, is_completed, completed_date 
+        FROM todos 
+        WHERE id = ? OR parent_id = ?
+    """, (todo_id, todo_id))
+    
+    updated_todos = [
+        {
+            "id": row[0],
+            "is_completed": bool(row[1]),
+            "completed_date": row[2]
+        }
+        for row in c.fetchall()
+    ]
+    
+    conn.close()
+    
+    return jsonify({
+        "status": "success",
+        "updated_todos": updated_todos
+    })
+
+@app.route('/api/todos/<int:todo_id>', methods=['DELETE'])
+def delete_todo(todo_id):
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Find and delete all subtasks
+    try:
+        # Use recursive CTE to find all descendant tasks
+        c.execute("""
+            WITH RECURSIVE subtasks(id) AS (
+                SELECT id FROM todos WHERE id = ?
+                UNION ALL
+                SELECT t.id FROM todos t, subtasks s WHERE t.parent_id = s.id
+            )
+            DELETE FROM todos WHERE id IN subtasks
+        """, (todo_id,))
+        
+        deleted_count = c.rowcount
+        
+        if deleted_count == 0:
+            conn.close()
+            return jsonify({"status": "error", "message": "Todo not found"}), 404
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            "status": "success", 
+            "deleted_count": deleted_count
+        })
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/todos/stats/weekly', methods=['GET'])
+def get_weekly_stats():
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Get the date for 7 days ago
+    today = datetime.now()
+    seven_days_ago = (today - timedelta(days=6)).strftime("%Y-%m-%d")
+    today_str = today.strftime("%Y-%m-%d")
+    
+    # Generate a list of dates for the last 7 days
+    dates = []
+    date_obj = today - timedelta(days=6)
+    for _ in range(7):
+        dates.append(date_obj.strftime("%Y-%m-%d"))
+        date_obj += timedelta(days=1)
+    
+    # Get completed tasks in the last 7 days
+    c.execute(
+        "SELECT completed_date, COUNT(*) FROM todos WHERE completed_date >= ? AND completed_date <= ? GROUP BY completed_date",
+        (seven_days_ago, today_str)
+    )
+    
+    # Create a dictionary of completed tasks by date
+    completed_by_date = {row[0]: row[1] for row in c.fetchall()}
+    
+    # Create the final result
+    result = []
+    for date in dates:
+        result.append({
+            "date": date,
+            "completed": completed_by_date.get(date, 0)
+        })
+    
+    conn.close()
+    return jsonify(result)
+
+@app.route('/api/todos/<int:todo_id>/copy', methods=['POST'])
+def copy_todo(todo_id):
+    data = request.json
+    target_date = data.get('target_date')
+    
+    if not target_date:
+        return jsonify({"status": "error", "message": "Target date is required"}), 400
+    
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Get the todo to copy
+    c.execute(
+        "SELECT description, parent_id, level FROM todos WHERE id = ?", 
+        (todo_id,)
+    )
+    todo = c.fetchone()
+    
+    if not todo:
+        conn.close()
+        return jsonify({"status": "error", "message": "Todo not found"}), 404
+    
+    description, parent_id, level = todo
+    
+    # Insert the new todo with the target date
+    now = datetime.now().strftime("%Y-%m-%d")
+    
+    c.execute(
+        "INSERT INTO todos (description, created_date, is_completed, parent_id, level, planned_date) VALUES (?, ?, ?, ?, ?, ?)",
+        (description, now, 0, parent_id, level, target_date)
+    )
+    
+    new_todo_id = c.lastrowid
+    
+    # If this was a parent task, check if we need to copy its subtasks
+    if data.get('copy_subtasks', False):
+        # Find all immediate subtasks
+        c.execute(
+            "SELECT id, description, level FROM todos WHERE parent_id = ?",
+            (todo_id,)
+        )
+        
+        subtasks = c.fetchall()
+        
+        # Copy each subtask with the new parent_id
+        for subtask_id, subtask_desc, subtask_level in subtasks:
+            c.execute(
+                "INSERT INTO todos (description, created_date, is_completed, parent_id, level, planned_date) VALUES (?, ?, ?, ?, ?, ?)",
+                (subtask_desc, now, 0, new_todo_id, subtask_level, target_date)
+            )
+    
+    conn.commit()
+    
+    # Get the new todo with all info
+    c.execute(
+        "SELECT id, description, created_date, completed_date, is_completed, parent_id, level, planned_date, time_spent FROM todos WHERE id = ?",
+        (new_todo_id,)
+    )
+    
+    row = c.fetchone()
+    new_todo = {
+        "id": row[0],
+        "description": row[1],
+        "created_date": row[2],
+        "completed_date": row[3],
+        "is_completed": bool(row[4]),
+        "parent_id": row[5],
+        "level": row[6],
+        "planned_date": row[7],
+        "time_spent": row[8],
+        "subtasks": []
+    }
+    
+    conn.close()
+    return jsonify({"status": "success", "todo": new_todo})
+
+@app.route('/api/todos/<int:todo_id>/time', methods=['POST'])
+def update_time_spent(todo_id):
+    data = request.json
+    time_spent = data.get('time_spent', 0)
+    
+    if time_spent < 0:
+        return jsonify({"status": "error", "message": "Time spent cannot be negative"}), 400
+    
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Update the time spent
+    c.execute(
+        "UPDATE todos SET time_spent = ? WHERE id = ?",
+        (time_spent, todo_id)
+    )
+    
+    if c.rowcount == 0:
+        conn.close()
+        return jsonify({"status": "error", "message": "Todo not found"}), 404
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"status": "success"})
+
+@app.route('/api/todos/<int:todo_id>/plan', methods=['POST'])
+def update_planned_date(todo_id):
+    data = request.json
+    planned_date = data.get('planned_date')
+    
+    conn = sqlite3.connect('expenses.db')
+    c = conn.cursor()
+    
+    # Update the planned date
+    c.execute(
+        "UPDATE todos SET planned_date = ? WHERE id = ?",
+        (planned_date, todo_id)
+    )
+    
+    if c.rowcount == 0:
+        conn.close()
+        return jsonify({"status": "error", "message": "Todo not found"}), 404
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"status": "success"})
+
+# Initialize the database
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     migrate_data()
     app.run(port=8092, host='0.0.0.0') 

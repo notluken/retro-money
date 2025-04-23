@@ -1,7 +1,18 @@
 // Grid dimensions
-const GRID_ROWS = 50;
-const GRID_COLS = 15;
-const COL_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
+const GRID_ROWS = 15;
+const GRID_COLS = 7;
+const COL_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+// Default column widths - percentages of total width
+const DEFAULT_COLUMN_WIDTHS = {
+    'A': '12%',   // Date
+    'B': '22%',   // Description - reduced from 32% to 22%
+    'C': '15%',   // Amount USD - increased from 13% to 15%
+    'D': '15%',   // Amount ARS - increased from 13% to 15%
+    'E': '12%',   // Currency - increased from 10% to 12%
+    'F': '16%',   // Category - increased from 12% to 16%
+    'G': '8%'     // Actions
+};
 
 // Global variables
 let selectedCell = null;
@@ -22,17 +33,6 @@ let budgetAllocations = []; // Will store budget allocations
 let budgetChart = null; // Chart.js instance
 let pendingExpense = null; // For storing expense that exceeds budget
 
-// Default column widths
-const DEFAULT_COLUMN_WIDTHS = {
-    'A': 60,
-    'B': 110,
-    'C': 200,  // Description column - wider
-    'D': 120,
-    'E': 120,
-    'F': 100,
-    'G': 100
-};
-
 // Initialize the grid
 function initGrid() {
     const grid = document.getElementById('expense-grid');
@@ -44,6 +44,8 @@ function initGrid() {
     for (let r = 0; r < GRID_ROWS; r++) {
         const row = document.createElement('div');
         row.className = 'grid-row';
+        row.style.width = '100%';
+        row.style.display = 'flex';
         
         // Apply custom row height if exists
         if (rowHeights[r + 1]) {
@@ -60,10 +62,10 @@ function initGrid() {
             cell.dataset.col = colLetter;
             cell.textContent = gridData[cellId] || '';
             
-            // Apply width from columnWidths or use default
-            const width = columnWidths[colLetter] || DEFAULT_COLUMN_WIDTHS[colLetter] || 120;
-            cell.style.width = `${width}px`;
-            cell.style.minWidth = `${width}px`;
+            // Apply width as percentage to make cells stretch
+            cell.style.width = DEFAULT_COLUMN_WIDTHS[colLetter];
+            cell.style.minWidth = "0"; // Allow shrinking if needed
+            cell.style.flex = "1 1 " + DEFAULT_COLUMN_WIDTHS[colLetter];
             
             // Add event listeners for mouse
             cell.addEventListener('click', () => selectCell(cell));
@@ -85,12 +87,54 @@ function initGrid() {
     // Setup resizing for columns and rows
     setupResizeHandlers();
     
+    // Fix column headers display
+    fixColumnHeadersDisplay();
+    
     // Add touch scrollable class for iPhone
     if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
         if (gridWithRowHeaders) {
             gridWithRowHeaders.classList.add('touch-scrollable');
         }
+    }
+}
+
+// Fix column headers display
+function fixColumnHeadersDisplay() {
+    const columnHeaders = document.querySelectorAll('.column-header');
+    const columnHeadersContainer = document.querySelector('.column-headers');
+    
+    if (columnHeadersContainer) {
+        columnHeadersContainer.style.width = '100%';
+        columnHeadersContainer.style.display = 'flex';
+    }
+    
+    columnHeaders.forEach((header, index) => {
+        if (index < GRID_COLS) {
+            const letter = COL_LETTERS[index];
+            
+            // Set the letter in the header
+            header.textContent = letter;
+            
+            // Apply width as percentage
+            header.style.width = DEFAULT_COLUMN_WIDTHS[letter];
+            header.style.minWidth = "0";
+            header.style.flex = "1 1 " + DEFAULT_COLUMN_WIDTHS[letter];
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.style.justifyContent = 'center';
+        } else {
+            // Hide any extra headers
+            header.style.display = 'none';
+        }
+    });
+    
+    // Make corner-cell visible
+    const cornerCell = document.querySelector('.corner-cell');
+    if (cornerCell) {
+        cornerCell.style.width = '40px';
+        cornerCell.style.minWidth = '40px';
+        cornerCell.style.backgroundColor = '#c0c0c0';
     }
 }
 
@@ -105,12 +149,15 @@ function handleTouchStart(e, cell) {
         selectCell(cell);
     }, 150);
     
-    // For iPhone - ensure parent container is scrollable
+    // For iPhone - ensure parent container is scrollable vertically only
     if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
         if (gridWithRowHeaders) {
-            gridWithRowHeaders.style.overflow = 'auto';
+            gridWithRowHeaders.style.overflowY = 'scroll';
+            gridWithRowHeaders.style.overflowX = 'hidden';
             gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
+            gridWithRowHeaders.style.scrollbarWidth = 'none';
+            gridWithRowHeaders.style.msOverflowStyle = 'none';
         }
     }
 }
@@ -157,7 +204,7 @@ function setupExpenseHeaders() {
         { cell: 'G1', value: 'Actions', style: 'bold' }
     ];
     
-    // First, style all row 1 cells with red background
+    // First, style all row 1 cells with proper background
     for (let c = 0; c < GRID_COLS; c++) {
         const colLetter = COL_LETTERS[c];
         const cellId = `${colLetter}1`;
@@ -167,13 +214,21 @@ function setupExpenseHeaders() {
             cell.style.backgroundColor = '#c0c0c0';
             cell.style.color = '#000000';
             cell.style.fontWeight = 'bold';
-            cell.style.borderBottom = '2px solid #000000';
-            cell.style.borderRight = '2px solid #000000';
-            cell.style.height = '35px';
+            cell.style.borderBottom = '1px solid #000000';
+            cell.style.borderRight = '1px solid #000000';
+            cell.style.height = '25px';
+            cell.style.display = 'flex';
+            cell.style.alignItems = 'center';
+            cell.style.justifyContent = 'center';
+            
+            // Apply the specific width from DEFAULT_COLUMN_WIDTHS
+            cell.style.width = DEFAULT_COLUMN_WIDTHS[colLetter];
+            cell.style.minWidth = "0";
+            cell.style.flex = "1 1 " + DEFAULT_COLUMN_WIDTHS[colLetter];
         }
     }
     
-    // Then set specific header text
+    // Apply header values
     headers.forEach(header => {
         const cell = document.getElementById(header.cell);
         if (cell) {
@@ -196,6 +251,12 @@ function setupResizeHandlers() {
         const width = columnWidths[letter] || DEFAULT_COLUMN_WIDTHS[letter] || 120;
         header.style.width = `${width}px`;
         header.style.minWidth = `${width}px`;
+        
+        // Make letter visible and centered
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
+        header.style.justifyContent = 'center';
+        header.style.fontWeight = 'bold';
         
         // Mouse events
         header.addEventListener('mousedown', (e) => {
@@ -445,11 +506,6 @@ function selectCell(cell) {
     // Select new cell
     selectedCell = cell;
     cell.classList.add('selected');
-    
-    // Update formula bar
-    const formulaInput = document.getElementById('formula-input');
-    const cellId = cell.id;
-    formulaInput.value = cellFormulas[cellId] || '';
 }
 
 // Edit a cell
@@ -514,14 +570,20 @@ function finishEdit(cell, input) {
                     expense.description = value;
                     saveExpenseChanges(expense);
                 } else if (col === 'C') { // Amount (USD)
-                    const amount = parseFloat(value.replace(/[$,]/g, ''));
+                    // Remove currency symbols and commas, then parse as float with fixed precision
+                    const amount = parseFloat(parseFloat(value.replace(/[$,]/g, '')).toFixed(2));
+                    
                     if (!isNaN(amount)) {
+                        console.log(`Editing USD amount: ${value} -> ${amount}`);
+                        
                         if (expense.currency === 'ARS') {
                             // If expense is in ARS, convert USD back to ARS
                             const rate = expense.currency === 'USD-Blue' ? exchangeRate : 
-                                       expense.currency === 'USD-Tarjeta' ? exchangeRateTarjeta :
-                                       selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
-                            expense.amount = amount * rate;
+                                      expense.currency === 'USD-Tarjeta' ? exchangeRateTarjeta :
+                                      selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
+                            
+                            expense.amount = parseFloat((amount * rate).toFixed(2));
+                            console.log(`Converting to ARS: ${amount} USD * ${rate} = ${expense.amount} ARS`);
                         } else {
                             expense.amount = amount;
                         }
@@ -529,14 +591,20 @@ function finishEdit(cell, input) {
                         displayExpenses(); // Refresh to update calculated values
                     }
                 } else if (col === 'D') { // Amount (ARS)
-                    const amount = parseFloat(value.replace(/[ARS$,\s]/g, ''));
+                    // Remove currency symbols, spaces, and commas
+                    const amount = parseFloat(parseFloat(value.replace(/[ARS$,\s]/g, '')).toFixed(2));
+                    
                     if (!isNaN(amount)) {
+                        console.log(`Editing ARS amount: ${value} -> ${amount}`);
+                        
                         if (expense.currency !== 'ARS') {
                             // If expense is in USD, convert ARS back to USD
                             const rate = expense.currency === 'USD-Blue' ? exchangeRate : 
-                                       expense.currency === 'USD-Tarjeta' ? exchangeRateTarjeta :
-                                       selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
-                            expense.amount = amount / rate;
+                                      expense.currency === 'USD-Tarjeta' ? exchangeRateTarjeta :
+                                      selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
+                            
+                            expense.amount = parseFloat((amount / rate).toFixed(2));
+                            console.log(`Converting to USD: ${amount} ARS / ${rate} = ${expense.amount} USD`);
                         } else {
                             expense.amount = amount;
                         }
@@ -646,174 +714,65 @@ function recalculateFormulas() {
 }
 
 // Format buttons
-document.querySelector('.toolbar-button.bold').addEventListener('click', () => {
-    if (selectedCell) {
-        selectedCell.classList.toggle('bold');
-    }
-});
+const boldButton = document.querySelector('.toolbar-button.bold');
+if (boldButton) {
+    boldButton.addEventListener('click', () => {
+        if (selectedCell) {
+            selectedCell.classList.toggle('bold');
+        }
+    });
+}
 
-document.querySelector('.toolbar-button.italic').addEventListener('click', () => {
-    if (selectedCell) {
-        selectedCell.classList.toggle('italic');
-    }
-});
+const italicButton = document.querySelector('.toolbar-button.italic');
+if (italicButton) {
+    italicButton.addEventListener('click', () => {
+        if (selectedCell) {
+            selectedCell.classList.toggle('italic');
+        }
+    });
+}
 
 // Format as currency
-document.querySelector('.toolbar-button:nth-child(3)').addEventListener('click', () => {
-    if (selectedCell && selectedCell.textContent) {
-        const value = parseFloat(selectedCell.textContent);
-        if (!isNaN(value)) {
-            selectedCell.textContent = '$' + value.toFixed(2);
+const currencyButton = document.querySelector('.toolbar-button:nth-child(3)');
+if (currencyButton) {
+    currencyButton.addEventListener('click', () => {
+        if (selectedCell && selectedCell.textContent) {
+            const value = parseFloat(selectedCell.textContent);
+            if (!isNaN(value)) {
+                selectedCell.textContent = '$' + value.toFixed(2);
+            }
         }
-    }
-});
+    });
+}
 
 // Format as percentage
-document.querySelector('.toolbar-button:nth-child(4)').addEventListener('click', () => {
-    if (selectedCell && selectedCell.textContent) {
-        const value = parseFloat(selectedCell.textContent);
-        if (!isNaN(value)) {
-            selectedCell.textContent = (value * 100).toFixed(1) + '%';
-        }
-    }
-});
-
-// Formula bar
-document.getElementById('formula-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && selectedCell) {
-        const formula = e.target.value;
-        if (formula.startsWith('=')) {
-            cellFormulas[selectedCell.id] = formula;
-            const calculatedValue = calculateFormula(formula);
-            selectedCell.textContent = calculatedValue !== null ? calculatedValue : '#ERROR';
-            gridData[selectedCell.id] = calculatedValue;
-            recalculateFormulas();
-        } else {
-            selectedCell.textContent = formula;
-            gridData[selectedCell.id] = formula;
-            delete cellFormulas[selectedCell.id];
-        }
-    }
-});
-
-// Fetch exchange rate from API
-async function fetchExchangeRate() {
-    try {
-        // Fetch both exchange rates
-        const [blueResponse, tarjetaResponse] = await Promise.all([
-            fetch('/api/exchange-rate/blue'),
-            fetch('/api/exchange-rate/tarjeta')
-        ]);
-        
-        if (blueResponse.ok && tarjetaResponse.ok) {
-            const blueData = await blueResponse.json();
-            const tarjetaData = await tarjetaResponse.json();
-            
-            exchangeRate = blueData.usd_to_ars;
-            exchangeRateTarjeta = tarjetaData.usd_to_ars;
-            
-            // Update UI
-            document.getElementById('exchange-rate').textContent = selectedDolarType === 'blue' ? 
-                exchangeRate : exchangeRateTarjeta;
-            
-            // Format date
-            const updatedDate = new Date(
-                selectedDolarType === 'blue' ? 
-                blueData.updated : tarjetaData.updated
-            ).toLocaleString();
-            document.getElementById('rate-updated').textContent = updatedDate;
-            
-            console.log('Exchange rates updated - Blue:', exchangeRate, 'Tarjeta:', exchangeRateTarjeta);
-            
-            // Update ARS values in expenses
-            updateExpenses();
-        } else {
-            throw new Error('Failed to fetch exchange rates');
-        }
-    } catch (error) {
-        console.error('Error fetching exchange rate:', error);
-        document.getElementById('exchange-rate').textContent = 'Error';
-    }
-}
-
-// Switch dollar type
-function switchDolarType(type) {
-    selectedDolarType = type;
-    
-    // Update the display rate
-    document.getElementById('exchange-rate').textContent = 
-        selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
-    
-    // Update the date
-    const rateElement = document.getElementById('rate-type');
-    rateElement.textContent = selectedDolarType === 'blue' ? 'Blue' : 'Tarjeta';
-    
-    // Update button active state
-    document.getElementById('dolar-blue').classList.toggle('active', selectedDolarType === 'blue');
-    document.getElementById('dolar-tarjeta').classList.toggle('active', selectedDolarType === 'tarjeta');
-    
-    // Update currency dropdown default
-    const currencySelect = document.getElementById('expense-currency');
-    if (selectedDolarType === 'blue') {
-        currencySelect.value = 'USD-Blue';
-    } else {
-        currencySelect.value = 'USD-Tarjeta';
-    }
-    
-    // Update expenses display and totals
-    displayExpenses();
-}
-
-// Fetch and save monthly salary
-async function fetchSalary() {
-    try {
-        const response = await fetch('/api/salary');
-        const data = await response.json();
-        monthlySalary = data.salary;
-        
-        // Update UI
-        document.getElementById('salary-input').value = monthlySalary;
-    } catch (error) {
-        console.error('Error fetching salary:', error);
-    }
-}
-
-document.getElementById('save-salary').addEventListener('click', async () => {
-    const salaryInput = document.getElementById('salary-input');
-    const salary = parseFloat(salaryInput.value);
-    
-    if (!isNaN(salary)) {
-        try {
-            const response = await fetch('/api/salary', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ salary })
-            });
-            
-            if (response.ok) {
-                monthlySalary = salary;
-                updateTotals();
-                // Also update budget allocations
-                await fetchBudgetAllocations();
-                console.log('Salary saved:', salary);
+const percentButton = document.querySelector('.toolbar-button:nth-child(4)');
+if (percentButton) {
+    percentButton.addEventListener('click', () => {
+        if (selectedCell && selectedCell.textContent) {
+            const value = parseFloat(selectedCell.textContent);
+            if (!isNaN(value)) {
+                selectedCell.textContent = (value * 100).toFixed(1) + '%';
             }
-        } catch (error) {
-            console.error('Error saving salary:', error);
         }
-    }
-});
+    });
+}
 
 // Fetch expenses from backend
 async function fetchExpenses() {
-    try {
-        const response = await fetch('/api/expenses');
-        expenses = await response.json();
-        displayExpenses();
-    } catch (error) {
-        console.error('Error fetching expenses:', error);
-    }
+    return new Promise((resolve, reject) => {
+        try {
+            // Use the storage API instead of direct fetch
+            AppStorage.expenses.get(function(data) {
+                expenses = data;
+                displayExpenses(); // This will call updateTotals()
+                resolve(data);
+            });
+        } catch (error) {
+            console.error('Error fetching expenses:', error);
+            reject(error);
+        }
+    });
 }
 
 // Format a number to display properly
@@ -826,90 +785,94 @@ function formatNumber(num, isUSD = false) {
         return "0.00";
     }
     
+    // Make sure we have the right precision
     if (isUSD) {
-        return num.toFixed(2);
+        // Always show 2 decimal places for USD
+        // Using parseFloat to handle potential floating point issues
+        return parseFloat(num.toFixed(2)).toFixed(2);
     } else {
         // For ARS, use no decimal places if the number is whole
-        return num % 1 === 0 ? 
-            Math.round(num).toString() : 
-            num.toFixed(2);
+        if (Math.abs(num % 1) < 0.001) { // Check if it's very close to a whole number
+            return Math.round(num).toString();
+        } else {
+            // Show up to 2 decimal places, but trim trailing zeros
+            return parseFloat(num.toFixed(2)).toString();
+        }
     }
 }
 
 // Display expenses in the grid
 function displayExpenses() {
-    // Clear any existing expense data (except headers)
-    for (let r = 2; r <= expenses.length + 1; r++) {
+    // Clear old expense data (starting from row 2)
+    for (let r = 1; r < GRID_ROWS; r++) {
         for (let c = 0; c < GRID_COLS; c++) {
-            const cellId = `${COL_LETTERS[c]}${r}`;
-            gridData[cellId] = '';
-        }
-    }
-    
-    expenses.forEach((expense, index) => {
-        const row = index + 2; // Start at row 2 (row 1 is headers)
-        
-        // Display expense data
-        gridData[`A${row}`] = expense.date;
-        gridData[`B${row}`] = expense.description;
-        
-        // Determine the exchange rate to use based on the currency
-        let currentRate;
-        if (expense.currency === 'USD-Blue' || expense.currency === 'USD-Tarjeta') {
-            currentRate = expense.currency === 'USD-Blue' ? exchangeRate : exchangeRateTarjeta;
-        } else {
-            currentRate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
-        }
-        
-        if (expense.currency === 'USD-Blue' || expense.currency === 'USD-Tarjeta') {
-            gridData[`C${row}`] = formatNumber(expense.amount, true);
-            gridData[`D${row}`] = formatNumber(expense.amount * currentRate);
-            gridData[`E${row}`] = expense.currency;
-        } else if (expense.currency === 'ARS') {
-            gridData[`C${row}`] = formatNumber(expense.amount / currentRate, true);
-            gridData[`D${row}`] = formatNumber(expense.amount);
-            gridData[`E${row}`] = 'ARS';
-        } else {
-            // Legacy USD handling (for backward compatibility)
-            gridData[`C${row}`] = formatNumber(expense.amount, true);
-            gridData[`D${row}`] = formatNumber(expense.amount * currentRate);
-            gridData[`E${row}`] = selectedDolarType === 'blue' ? 'USD-Blue' : 'USD-Tarjeta';
-        }
-        
-        // Add category to the grid
-        gridData[`F${row}`] = expense.category || 'Fixed Expenses';
-        
-        gridData[`G${row}`] = 'Delete';
-        
-        // Set delete button
-        const cell = document.getElementById(`G${row}`);
-        if (cell) {
-            cell.style.color = 'red';
-            cell.style.cursor = 'pointer';
-            
-            // Remove any existing event listeners by cloning and replacing the cell
-            const newCell = cell.cloneNode(true);
-            cell.parentNode.replaceChild(newCell, cell);
-            
-            // Add new event listener
-            newCell.addEventListener('click', () => deleteExpense(expense.id));
-        }
-    });
-    
-    // Update grid display
-    for (const cellId in gridData) {
-        const cell = document.getElementById(cellId);
-        if (cell) {
-            cell.textContent = gridData[cellId];
-            
-            // Add styling for Delete text
-            if (cell.textContent === 'Delete') {
-                cell.style.color = 'red';
-                cell.style.cursor = 'pointer';
+            const cellId = `${COL_LETTERS[c]}${r + 1}`;
+            const cell = document.getElementById(cellId);
+            if (cell) {
+                cell.textContent = '';
+                cell.innerHTML = '';
+                gridData[cellId] = '';
             }
         }
     }
     
+    // Sort expenses by date, newest first
+    expenses.sort((a, b) => {
+        return new Date(b.date) - new Date(a.date);
+    });
+    
+    // Populate expenses into grid
+    for (let i = 0; i < expenses.length; i++) {
+        const expense = expenses[i];
+        const rowNum = i + 2; // Start from row 2
+        
+        // Format date
+        const dateObj = new Date(expense.date);
+        const formattedDate = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getDate().toString().padStart(2, '0')}`;
+        
+        // Format amounts
+        let amountUSD = expense.amount;
+        let amountARS = 0;
+        
+        if (expense.currency === 'ARS') {
+            // If in ARS, convert to USD
+            amountUSD = exchangeRate > 0 ? expense.amount / exchangeRate : 0;
+            amountARS = expense.amount;
+        } else if (expense.currency === 'USD-Blue' || expense.currency === 'USD') {
+            // If in USD, convert to ARS
+            amountUSD = expense.amount;
+            amountARS = expense.amount * exchangeRate;
+        } else if (expense.currency === 'USD-Tarjeta') {
+            // If in USD-Tarjeta, use tarjeta rate
+            amountUSD = expense.amount;
+            amountARS = expense.amount * exchangeRateTarjeta;
+        }
+        
+        // Set cell values
+        setCellValue(`A${rowNum}`, formattedDate);
+        setCellValue(`B${rowNum}`, expense.description);
+        setCellValue(`C${rowNum}`, formatNumber(amountUSD, true));
+        setCellValue(`D${rowNum}`, formatNumber(amountARS));
+        setCellValue(`E${rowNum}`, expense.currency);
+        setCellValue(`F${rowNum}`, expense.category);
+        
+        // Add a delete link
+        const deleteCell = document.getElementById(`G${rowNum}`);
+        if (deleteCell) {
+            deleteCell.innerHTML = '';
+            const deleteLink = document.createElement('a');
+            deleteLink.href = '#';
+            deleteLink.textContent = 'Delete';
+            deleteLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                deleteExpense(expense.id);
+            });
+            deleteCell.appendChild(deleteLink);
+            gridData[`G${rowNum}`] = 'Delete';
+        }
+    }
+    
+    // Update totals
     updateTotals();
 }
 
@@ -988,26 +951,34 @@ document.getElementById('cancel-expense').addEventListener('click', () => {
 // Add expense helper function
 async function addExpense(date, description, amount, currency, category) {
     try {
-        const response = await fetch('/api/expenses', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ date, description, amount, currency, category })
-        });
+        // Ensure amount has proper precision
+        const preciseAmount = parseFloat(parseFloat(amount).toFixed(2));
+        console.log(`Adding expense: ${description}, Amount: ${amount} -> ${preciseAmount} ${currency}`);
         
-        if (response.ok) {
-            // Clear form
+        const expenseData = { 
+            date, 
+            description, 
+            amount: preciseAmount, // Use precise amount
+            currency, 
+            category 
+        };
+        
+        // Use the storage API instead of direct fetch
+        AppStorage.expenses.add(expenseData, function(data) {
+            // Reset form fields
             document.getElementById('expense-date').value = '';
             document.getElementById('expense-desc').value = '';
             document.getElementById('expense-amount').value = '';
             
-            // Fetch updated expenses and budget
-            await fetchExpenses();
-            await fetchBudgetAllocations();
+            // Update expenses and totals, then refresh budgets
+            expenses = data;
+            displayExpenses();
             
-            console.log('Expense added');
-        }
+            // Refresh budgets after the totals are updated
+            setTimeout(() => {
+                fetchBudgetAllocations();
+            }, 50);
+        });
     } catch (error) {
         console.error('Error adding expense:', error);
     }
@@ -1016,22 +987,94 @@ async function addExpense(date, description, amount, currency, category) {
 // Fetch budget allocations from backend
 async function fetchBudgetAllocations() {
     try {
-        const response = await fetch('/api/budget-allocations');
-        const data = await response.json();
+        // First, ensure we have the most accurate expense data
+        // Build a category map of our expenses for precise comparisons
+        const categoryMap = {};
+        let totalFromExpenses = 0;
         
-        console.log("Budget allocations data:", data);
+        expenses.forEach(expense => {
+            // Determine the correct USD amount
+            let usdAmount;
+            
+            if (expense.currency === 'ARS') {
+                // Convert ARS to USD
+                const rate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
+                usdAmount = parseFloat((expense.amount / rate).toFixed(2));
+            } else {
+                // Already in USD
+                usdAmount = parseFloat(expense.amount.toFixed(2));
+            }
+            
+            const category = expense.category || 'Fixed Expenses';
+            
+            // Add to category map
+            if (!categoryMap[category]) {
+                categoryMap[category] = 0;
+            }
+            categoryMap[category] = parseFloat((categoryMap[category] + usdAmount).toFixed(2));
+            
+            // Add to total
+            totalFromExpenses = parseFloat((totalFromExpenses + usdAmount).toFixed(2));
+        });
         
-        // Store the allocations
-        budgetAllocations = data.allocations;
+        console.log('Local expense totals by category:', categoryMap);
+        console.log('Total expenses from local data:', totalFromExpenses);
         
-        // Display budget allocations
-        displayBudgetAllocations(data);
-        
-        // Update the budget chart
-        updateBudgetChart(data);
-        
-        // Check for budget warnings
-        checkBudgetWarnings(data);
+        // Use the storage API
+        AppStorage.budget.getAllocations(function(data) {
+            if (data) {
+                budgetAllocations = data.allocations || [];
+                
+                // Get the total from the UI for verification
+                const totalUSDElement = document.getElementById('total-usd');
+                let displayedTotal = 0;
+                
+                if (totalUSDElement) {
+                    // Extract the numeric value from the total-usd element
+                    const totalUSDStr = totalUSDElement.textContent.replace(/[$,]/g, '');
+                    displayedTotal = parseFloat(totalUSDStr);
+                    
+                    if (!isNaN(displayedTotal)) {
+                        console.log('Displayed total from UI:', displayedTotal);
+                        
+                        // Check if there's a meaningful difference between totals
+                        if (Math.abs(displayedTotal - totalFromExpenses) > 0.01) {
+                            console.warn('Discrepancy between UI total and calculated total:', 
+                                        {ui: displayedTotal, calculated: totalFromExpenses});
+                        }
+                    }
+                }
+                
+                // Force the API data to use our locally calculated values
+                // This ensures complete consistency between the table and chart
+                if (data.allocations && data.allocations.length > 0) {
+                    data.allocations.forEach(alloc => {
+                        // Use our precise category values from local calculations
+                        if (categoryMap[alloc.name] !== undefined) {
+                            const oldValue = alloc.actual;
+                            alloc.actual = categoryMap[alloc.name];
+                            alloc.remaining = parseFloat((alloc.allocated - alloc.actual).toFixed(2));
+                            alloc.is_over_budget = alloc.remaining < 0;
+                            
+                            console.log(`Adjusting ${alloc.name}: API value ${oldValue} → Local value ${alloc.actual}`);
+                        } else {
+                            // Category with no expenses
+                            alloc.actual = 0;
+                            alloc.remaining = alloc.allocated;
+                            alloc.is_over_budget = false;
+                        }
+                    });
+                    
+                    // Update the total actual
+                    data.total_actual = totalFromExpenses;
+                    data.total_remaining = parseFloat((data.total_allocated - data.total_actual).toFixed(2));
+                    
+                    console.log('Updated budget data with local calculations:', data);
+                }
+                
+                displayBudgetAllocations(data);
+            }
+        });
     } catch (error) {
         console.error('Error fetching budget allocations:', error);
     }
@@ -1136,22 +1179,57 @@ function displayBudgetAllocations(data) {
     }
     remainingCell.textContent = `$${formatNumber(totalRemaining, true)}`;
     budgetTotals.appendChild(remainingCell);
+    
+    // Add these calls to update budget chart and warnings
+    updateBudgetChart(data);
+    checkBudgetWarnings(data);
 }
 
 // Update budget chart
 function updateBudgetChart(data) {
     console.log("Updating budget chart with data:", data);
     
-    const ctx = document.getElementById('budget-chart').getContext('2d');
+    // Check if Chart.js is available
+    if (typeof Chart === 'undefined') {
+        console.error("Chart.js is not loaded. Cannot update budget chart.");
+        return;
+    }
+    
+    const chartCanvas = document.getElementById('budget-chart');
+    if (!chartCanvas) {
+        console.error("Budget chart canvas element not found.");
+        return;
+    }
+    
+    const ctx = chartCanvas.getContext('2d');
+    if (!ctx) {
+        console.error("Could not get 2D context from canvas.");
+        return;
+    }
     
     // Prepare data for chart
     const labels = data.allocations.map(a => a.name);
-    const allocatedData = data.allocations.map(a => a.allocated);
-    const actualData = data.allocations.map(a => a.actual);
+    
+    // Ensure we have precise numbers for the chart data
+    const allocatedData = data.allocations.map(a => parseFloat(parseFloat(a.allocated).toFixed(2)));
+    const actualData = data.allocations.map(a => parseFloat(parseFloat(a.actual).toFixed(2)));
     
     console.log("Chart labels:", labels);
     console.log("Allocated data:", allocatedData);
     console.log("Actual data:", actualData);
+    
+    // Verify total matches what we expect
+    const chartTotal = actualData.reduce((sum, val) => sum + val, 0);
+    const displayedTotal = parseFloat(document.getElementById('total-usd').textContent.replace(/[$,]/g, ''));
+    
+    console.log("Chart total:", parseFloat(chartTotal.toFixed(2)), "Displayed total:", displayedTotal);
+    
+    if (Math.abs(chartTotal - displayedTotal) > 0.01) {
+        console.warn("Chart total doesn't match displayed total!", {
+            chartTotal: chartTotal.toFixed(2),
+            displayedTotal: displayedTotal.toFixed(2)
+        });
+    }
     
     // Destroy existing chart if exists
     if (budgetChart) {
@@ -1159,62 +1237,68 @@ function updateBudgetChart(data) {
     }
     
     // Create new chart
-    budgetChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Allocated',
-                    data: allocatedData,
-                    backgroundColor: 'rgba(0, 0, 128, 0.7)',
-                    borderColor: 'rgba(0, 0, 128, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Actual',
-                    data: actualData,
-                    backgroundColor: 'rgba(192, 0, 0, 0.7)',
-                    borderColor: 'rgba(192, 0, 0, 1)',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Amount (USD)'
+    try {
+        budgetChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Allocated',
+                        data: allocatedData,
+                        backgroundColor: 'rgba(0, 0, 128, 0.7)',
+                        borderColor: 'rgba(0, 0, 128, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Actual',
+                        data: actualData,
+                        backgroundColor: 'rgba(192, 0, 0, 0.7)',
+                        borderColor: 'rgba(192, 0, 0, 1)',
+                        borderWidth: 1
                     }
-                }
+                ]
             },
-            animation: {
-                duration: 1000
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Amount (USD)'
+                        }
+                    }
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
+                animation: {
+                    duration: 1000
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                // Use exact numeric value, formatted consistently with the grid
+                                label += '$' + formatNumber(context.raw, true);
+                                return label;
                             }
-                            label += '$' + formatNumber(context.raw, true);
-                            return label;
                         }
                     }
                 }
             }
-        }
-    });
+        });
+        console.log("Budget chart created successfully");
+    } catch (error) {
+        console.error("Error creating budget chart:", error);
+    }
 }
 
 // Check for budget warnings
@@ -1231,22 +1315,21 @@ function checkBudgetWarnings(data) {
     }
 }
 
-// Delete an expense
+// Delete an expense by ID
 async function deleteExpense(id) {
     if (confirm('Are you sure you want to delete this expense?')) {
         try {
-            const response = await fetch('/api/expenses', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ id })
+            // Use the storage API instead of direct fetch
+            AppStorage.expenses.delete(id, function(data) {
+                // Update expenses and totals
+                expenses = data;
+                displayExpenses();
+                
+                // Refresh budgets after the totals are updated
+                setTimeout(() => {
+                    fetchBudgetAllocations();
+                }, 50);
             });
-            
-            if (response.ok) {
-                await fetchExpenses();
-                console.log('Expense deleted');
-            }
         } catch (error) {
             console.error('Error deleting expense:', error);
         }
@@ -1255,10 +1338,16 @@ async function deleteExpense(id) {
 
 // Update total calculations
 function updateTotals() {
+    // Use a more precise approach to prevent floating point errors
     let totalUSD = 0;
     let totalARS = 0;
     
-    expenses.forEach(expense => {
+    // Create a map to track category totals
+    const categoryTotals = {};
+    
+    console.log("Calculando totales para", expenses.length, "gastos");
+    
+    expenses.forEach((expense, index) => {
         // Determine exchange rate to use based on the currency
         let rate;
         if (expense.currency === 'USD-Blue') {
@@ -1272,42 +1361,78 @@ function updateTotals() {
             rate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
         }
         
+        // Ensure we're working with a numeric value, precisely rounded
+        const amount = parseFloat(parseFloat(expense.amount).toFixed(2));
+        
+        // Get category (default to Fixed Expenses if not specified)
+        const category = expense.category || 'Fixed Expenses';
+        
+        // Initialize category total if needed
+        if (!categoryTotals[category]) {
+            categoryTotals[category] = 0;
+        }
+        
+        // Use parseFloat and toFixed to avoid floating point errors
         if (expense.currency === 'USD-Blue' || expense.currency === 'USD-Tarjeta' || expense.currency === 'USD') {
-            totalUSD += expense.amount;
-            totalARS += expense.amount * rate;
+            // Add USD amount with proper precision handling
+            totalUSD = parseFloat((totalUSD + amount).toFixed(2));
+            totalARS = parseFloat((totalARS + amount * rate).toFixed(2));
+            
+            // Add to category total
+            categoryTotals[category] = parseFloat((categoryTotals[category] + amount).toFixed(2));
+            
+            // Log for debugging
+            console.log(`Gasto ${index + 1}: ${amount} USD (${expense.currency}) -> Total USD: ${totalUSD}`);
         } else {
-            totalUSD += expense.amount / rate;
-            totalARS += expense.amount;
+            // For ARS, convert to USD with proper precision handling
+            const usdAmount = parseFloat((amount / rate).toFixed(2));
+            totalUSD = parseFloat((totalUSD + usdAmount).toFixed(2));
+            totalARS = parseFloat((totalARS + amount).toFixed(2));
+            
+            // Add to category total
+            categoryTotals[category] = parseFloat((categoryTotals[category] + usdAmount).toFixed(2));
+            
+            // Log for debugging
+            console.log(`Gasto ${index + 1}: ${amount} ARS -> ${usdAmount} USD -> Total USD: ${totalUSD}`);
         }
     });
+    
+    console.log("Total final USD:", totalUSD);
+    console.log("Category totals (USD):", categoryTotals);
     
     document.getElementById('total-usd').textContent = `$${formatNumber(totalUSD, true)}`;
     document.getElementById('total-ars').textContent = `ARS ${formatNumber(totalARS)}`;
     
-    const remainingUSD = monthlySalary - totalUSD;
+    const remainingUSD = parseFloat((monthlySalary - totalUSD).toFixed(2));
     // Use the selected rate for calculating remaining ARS
     const currentRate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
-    const remainingARS = monthlySalary * currentRate - totalARS;
+    const remainingARS = parseFloat((monthlySalary * currentRate - totalARS).toFixed(2));
     
     document.getElementById('remaining-usd').textContent = `$${formatNumber(remainingUSD, true)}`;
     document.getElementById('remaining-ars').textContent = `ARS ${formatNumber(remainingARS)}`;
     
     // Update style for negative remaining budget
+    const remainingUsdElement = document.getElementById('remaining-usd');
+    const remainingArsElement = document.getElementById('remaining-ars');
+    
     if (remainingUSD < 0) {
-        document.getElementById('remaining-usd').style.color = 'red';
+        remainingUsdElement.classList.add('negative');
     } else {
-        document.getElementById('remaining-usd').style.color = '';
+        remainingUsdElement.classList.remove('negative');
     }
     
     if (remainingARS < 0) {
-        document.getElementById('remaining-ars').style.color = 'red';
+        remainingArsElement.classList.add('negative');
     } else {
-        document.getElementById('remaining-ars').style.color = '';
+        remainingArsElement.classList.remove('negative');
     }
     
     // Also color total expenses
     document.getElementById('total-usd').style.color = '';
     document.getElementById('total-ars').style.color = '';
+    
+    // Store category totals for later use with budget charts
+    window.categoryTotals = categoryTotals;
 }
 
 // Function to adjust budget allocations
@@ -1443,39 +1568,171 @@ document.getElementById('cancel-budget-adjustments').addEventListener('click', (
     document.getElementById('budget-adjust-modal').style.display = 'none';
 });
 
+// Fetch exchange rate
+async function fetchExchangeRate() {
+    try {
+        // Use the storage API for exchange rates
+        const type = selectedDolarType || 'blue';
+        
+        AppStorage.exchangeRate.get(type, function(data) {
+            if (data) {
+                if (type === 'blue') {
+                    exchangeRate = data.usd_to_ars;
+                } else {
+                    exchangeRateTarjeta = data.usd_to_ars;
+                }
+                updateExpenses();
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching exchange rate:', error);
+    }
+}
+
+// Switch dolar type
+function switchDolarType(type) {
+    selectedDolarType = type;
+    
+    // Update the storage
+    AppStorage.exchangeRate.setActiveType(type);
+    
+    // Update UI - removed button toggle
+    document.getElementById('rate-type').textContent = type === 'blue' ? 'Blue' : 'Tarjeta';
+    
+    // Update currency select
+    const currencySelect = document.getElementById('expense-currency');
+    currencySelect.value = type === 'blue' ? 'USD-Blue' : 'USD-Tarjeta';
+    
+    // Fetch rate if needed
+    fetchExchangeRate();
+}
+
+// Fetch salary from backend
+async function fetchSalary() {
+    try {
+        // Use the storage API
+        AppStorage.salary.get(function(salaryAmount) {
+            monthlySalary = salaryAmount || 0;
+            document.getElementById('salary-input').value = monthlySalary;
+        });
+    } catch (error) {
+        console.error('Error fetching salary:', error);
+    }
+}
+
+// Save salary changes
+document.getElementById('save-salary').addEventListener('click', async () => {
+    const salaryInput = document.getElementById('salary-input');
+    const salary = parseFloat(salaryInput.value);
+    
+    if (!isNaN(salary) && salary >= 0) {
+        try {
+            // Use the storage API
+            AppStorage.salary.save(salary, function(success) {
+                if (success) {
+                    monthlySalary = salary;
+                    fetchBudgetAllocations(); // Refresh allocations
+                }
+            });
+        } catch (error) {
+            console.error('Error saving salary:', error);
+        }
+    }
+});
+
+// Update monthly budget
+function updateMonthlyBudget() {
+    const salaryInput = document.getElementById('salary-input');
+    let salary = parseFloat(salaryInput.value || 0).toFixed(2);
+    
+    // Get the current currency
+    const currencySelector = document.getElementById('currency-selector');
+    const currency = currencySelector.value;
+    
+    // Store the updated salary
+    AppStorage.updateMonthlySalary(salary, currency);
+    
+    // Update the budget dashboard
+    updateBudgetDashboard();
+    
+    console.log(`Monthly budget updated: ${salary} ${currency}`);
+}
+
+// Add event listener to salary input
+function setupBudgetListeners() {
+    const salaryInput = document.getElementById('salary-input');
+    salaryInput.addEventListener('change', updateMonthlyBudget);
+    
+    // Ensure the currency selector also triggers an update
+    const currencySelector = document.getElementById('currency-selector');
+    currencySelector.addEventListener('change', function() {
+        // When currency changes, we need to recalculate the dashboard
+        updateBudgetDashboard();
+    });
+}
+
 // Initialize app
 async function initApp() {
     initGrid();
+    
+    // Ensure column headers are visible
+    setTimeout(fixColumnHeadersDisplay, 100);
+    
+    // Wait for Chart.js to load if needed
+    let chartAttemptsLeft = 10;
+    while (typeof Chart === 'undefined' && chartAttemptsLeft > 0) {
+        console.log(`Waiting for Chart.js to load... (${chartAttemptsLeft} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        chartAttemptsLeft--;
+    }
+    
+    if (typeof Chart === 'undefined') {
+        console.error("Chart.js failed to load after multiple attempts");
+    } else {
+        console.log("Chart.js loaded successfully");
+    }
+    
     await fetchExchangeRate();
     await fetchSalary();
-    await fetchExpenses();
+    
+    // Important: load expenses first and update totals before loading budget
+    await fetchExpenses(); // This will also call updateTotals()
+    
+    // Then load budget allocations which will use the totals
     await fetchBudgetAllocations();
     
-    // Add event listeners for dolar type selection
-    document.getElementById('dolar-blue').addEventListener('click', () => switchDolarType('blue'));
-    document.getElementById('dolar-tarjeta').addEventListener('click', () => switchDolarType('tarjeta'));
-    document.getElementById('dolar-blue').addEventListener('touchend', (e) => {
-        e.preventDefault();
-        switchDolarType('blue');
-    });
-    document.getElementById('dolar-tarjeta').addEventListener('touchend', (e) => {
-        e.preventDefault();
-        switchDolarType('tarjeta');
-    });
+    // Force another refresh after everything is loaded to ensure data consistency
+    setTimeout(async () => {
+        console.log("Performing final data consistency check...");
+        await fetchBudgetAllocations();
+    }, 500);
+    
+    // Removed event listeners for dolar type selection buttons
     
     // Initialize currency dropdown with current selected rate
     const currencySelect = document.getElementById('expense-currency');
     currencySelect.value = selectedDolarType === 'blue' ? 'USD-Blue' : 'USD-Tarjeta';
     
+    // Setup refresh button for exchange rate
+    const refreshRateButton = document.getElementById('refresh-rate');
+    if (refreshRateButton) {
+        refreshRateButton.addEventListener('click', () => {
+            fetchExchangeRate();
+            // Make sure to update expenses before refreshing budget data
+            fetchExpenses().then(() => {
+                fetchBudgetAllocations();
+            });
+        });
+    }
+    
     // Set up buttons with touch events
     const buttons = document.querySelectorAll('button');
     buttons.forEach(button => {
-        if (button.id !== 'dolar-blue' && button.id !== 'dolar-tarjeta') {
-            button.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                button.click();
-            });
-        }
+        // Removed dolar-blue and dolar-tarjeta exceptions
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            button.click();
+        });
     });
     
     // iPhone-specific setup for grid navigation
@@ -1505,7 +1762,121 @@ async function initApp() {
             }, 300);
         }
     }
+    
+    setupBudgetListeners();
 }
 
 // Start the app when the document is loaded
-document.addEventListener('DOMContentLoaded', initApp); 
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Convert between currencies
+function convertCurrency(amount, fromCurrency, toCurrency) {
+    if (fromCurrency === toCurrency) {
+        return parseFloat(amount);
+    }
+    
+    // Get the latest exchange rates from the global variable
+    const rates = window.exchangeRates || { USD_ARS: 945, ARS_USD: 1/945 };
+    
+    let result;
+    // Converting from USD to ARS
+    if (fromCurrency === 'USD' && toCurrency === 'ARS') {
+        result = parseFloat(amount) * rates.USD_ARS;
+    } 
+    // Converting from ARS to USD
+    else if (fromCurrency === 'ARS' && toCurrency === 'USD') {
+        result = parseFloat(amount) * rates.ARS_USD;
+    } 
+    else {
+        console.error('Unsupported currency conversion:', fromCurrency, 'to', toCurrency);
+        return parseFloat(amount);
+    }
+    
+    // Return with 2 decimal precision for calculations
+    return parseFloat(result.toFixed(2));
+}
+
+// Update budget dashboard with current expenses and salary
+function updateBudgetDashboard() {
+    const salaryInput = document.getElementById('salary-input');
+    const currencySelector = document.getElementById('currency-selector');
+    
+    // Get current currency and salary
+    const currentCurrency = currencySelector.value;
+    let monthlySalary = parseFloat(salaryInput.value || 0);
+    
+    // Calculate total expenses for the current month
+    const expenses = calculateMonthlyExpenses();
+    const totalExpenses = expenses.total;
+    
+    // Calculate remaining budget
+    const remaining = monthlySalary - totalExpenses;
+    
+    // Update dashboard UI
+    document.getElementById('total-expenses').textContent = `${totalExpenses.toFixed(2)} ${currentCurrency}`;
+    document.getElementById('remaining-budget').textContent = `${remaining.toFixed(2)} ${currentCurrency}`;
+    
+    // Update progress bar
+    const progressBar = document.getElementById('budget-progress');
+    if (progressBar) {
+        const percentUsed = monthlySalary > 0 ? (totalExpenses / monthlySalary) * 100 : 0;
+        progressBar.style.width = `${Math.min(percentUsed, 100)}%`;
+        
+        // Change color based on budget status
+        if (percentUsed > 90) {
+            progressBar.className = 'progress-bar progress-bar-danger';
+        } else if (percentUsed > 70) {
+            progressBar.className = 'progress-bar progress-bar-warning';
+        } else {
+            progressBar.className = 'progress-bar progress-bar-success';
+        }
+    }
+    
+    console.log(`Budget dashboard updated: ${totalExpenses.toFixed(2)} spent, ${remaining.toFixed(2)} remaining`);
+}
+
+// Calculate total expenses for the current month
+function calculateMonthlyExpenses() {
+    const currencySelector = document.getElementById('currency-selector');
+    const currentCurrency = currencySelector.value;
+    
+    // Get all expense cells from the grid
+    const expenseCells = document.querySelectorAll('.expense-cell');
+    
+    let total = 0;
+    let categories = {};
+    
+    // Process each expense cell
+    expenseCells.forEach(cell => {
+        const value = parseFloat(cell.textContent || 0);
+        const currency = cell.dataset.currency || currentCurrency;
+        const category = cell.dataset.category || 'Uncategorized';
+        
+        if (!isNaN(value) && value > 0) {
+            // Convert to current currency if needed
+            const convertedValue = convertCurrency(value, currency, currentCurrency);
+            
+            total += convertedValue;
+            
+            // Add to category total
+            if (!categories[category]) {
+                categories[category] = 0;
+            }
+            categories[category] += convertedValue;
+        }
+    });
+    
+    return {
+        total,
+        categories
+    };
+}
+
+// Set cell value (helper function for grid updates)
+function setCellValue(cellId, value) {
+    const cell = document.getElementById(cellId);
+    if (cell) {
+        cell.textContent = value;
+        gridData[cellId] = value;
+    }
+} 

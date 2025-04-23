@@ -1,21 +1,49 @@
-# Excel 2.0 (1987) Style Expense Tracker
+# Excel 2.0 (1987) Style Expense Tracker & Todo List
 
-A retro expense tracker web application that mimics the look and feel of Microsoft Excel 2.0 from 1987. This application allows users to track their expenses, convert between USD and Argentine Pesos using real-time exchange rates, and perform basic spreadsheet operations.
+A retro-styled web application that mimics the look and feel of Microsoft Excel 2.0 from 1987. This multi-function app includes expense tracking with budget management, as well as a comprehensive todo list with task management capabilities.
 
 ## Features
 
-- Classic Excel 2.0 UI with grid interface, menus, and toolbars
-- Expense tracking with USD and ARS support
-- Real-time USD to ARS currency conversion using https://dolarapi.com/v1/dolares/blue API
-- Basic formula support with cell references and SUM function
-- Cell formatting (bold, italic, currency, percentage)
-- Monthly salary tracking and budget calculation
+### Core Features
+- Classic Excel 2.0 UI with grid interface, menus, and retro styling
+- Responsive design that works on both desktop and mobile devices
 - Persistent data storage with SQLite
+
+### Expense Tracking
+- Track expenses in USD and Argentine Pesos (ARS)
+- Real-time currency conversion using dolarapi.com API
+- Support for both "Dolar Blue" and "Dolar Tarjeta" exchange rates
+- Categorize expenses into customizable budget categories
+- View expenses in a spreadsheet-like interface
+
+### Budget Management
+- Set monthly salary and track remaining budget
+- Implement the 30/20/30/20 budgeting rule (or customize allocations)
+- Visual budget dashboard with category breakdowns
+- Budget allocation adjustments with percentage controls
+- Budget warnings when categories exceed allocation
+- Graphical representation of budget vs. actual spending
+
+### Todo List
+- Create and manage tasks with due dates
+- Support for nested subtasks (multi-level task hierarchies)
+- Track time spent on tasks
+- Copy tasks to other dates (with or without subtasks)
+- Filter tasks by date
+- Mark tasks as complete/incomplete
+- Track completion statistics
+
+### Technical Features
+- No horizontal or vertical scrollbars (hidden but functional scrolling)
+- Optimized for both desktop and mobile devices
+- Offline-capable with local data caching
+- Responsive layout with proper column alignment
 
 ## Requirements
 
 - Python 3.10+
 - Flask
+- Requests library
 - SQLite3 (included with Python)
 - Modern web browser
 
@@ -40,28 +68,49 @@ http://127.0.0.1:5000
 
 ## Usage
 
-### Setting Monthly Salary
+### Expense Tracker
+
+#### Setting Monthly Salary
 - Enter your monthly salary in USD in the top input field and click "Save"
 
-### Adding Expenses
+#### Adding Expenses
 - Use the "Add Expense" form to enter:
-  - Date (defaults to today if left blank)
+  - Date
   - Description
   - Amount
-  - Currency (USD or ARS)
+  - Currency (USD Blue, USD Tarjeta, or ARS)
+  - Category (Fixed Expenses, Guilt-Free Spending, Savings, Investments)
 - Click "Add" to save the expense
 
-### Using the Spreadsheet
-- Click on a cell to select it
-- Double-click to edit a cell
-- Type formulas starting with "=" (e.g., "=A2+B2" or "=SUM(A2:A5)")
-- Use the toolbar buttons to format cells (bold, italic, currency, percentage)
+#### Budget Management
+- View your budget allocation in the Budget Dashboard
+- Click "Adjust Budget Allocations" to modify category percentages
+- Budget warnings appear when categories exceed allocation
 
-### Deleting Expenses
-- Click the "Delete" action in the rightmost column of the expense row
+#### Currency Conversion
+- The application automatically fetches the current USD to ARS exchange rates
+- Toggle between "Dolar Blue" and "Dolar Tarjeta" rates
+- All expenses are shown in both currencies for convenience
 
-## Currency Conversion
-The application automatically fetches the current USD to ARS exchange rate from the API and updates the display. All expenses are shown in both currencies for convenience.
+### Todo List
+
+#### Adding Tasks
+- Enter task description and due date
+- Click "Add" to create the task
+
+#### Managing Tasks
+- Use the checkboxes to mark tasks as complete/incomplete
+- Add subtasks to create hierarchical task lists
+- Track time spent on tasks with the timer icon
+- Copy tasks to other dates with the clipboard icon
+- Delete tasks with the X icon
+
+#### Filtering Tasks
+- View tasks for a specific date
+- View all tasks in a comprehensive list
 
 ## Data Persistence
-All data is stored in a local SQLite database (`expenses.db`) that is created automatically when you first run the application. 
+All data is stored in a local SQLite database (`expenses.db`) that is created automatically when you first run the application.
+
+## API Integration
+The application integrates with dolarapi.com to fetch real-time exchange rates for USD to ARS conversion. 
