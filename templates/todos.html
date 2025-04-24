@@ -32,7 +32,9 @@
             <div class="excel-title">Microsoft Excel 2.0</div>
             <div class="excel-menubar">
                 <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}">Expense Tracker</a>
+                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}">Transferencias</a>
                 <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}">Todo List</a>
+                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}">Investments</a>
             </div>
         </div>
         

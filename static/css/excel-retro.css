@@ -20,6 +20,9 @@
     padding: 0;
     font-family: 'Courier New', monospace;
     -webkit-tap-highlight-color: transparent;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+    -ms-overflow-style: auto;
 }
 
 body {
@@ -29,7 +32,9 @@ body {
     background-color: #f0f0f0;
     height: 100vh;
     width: 100%;
-    overflow: hidden;
+    min-width: 800px;
+    overflow-x: auto;
+    overflow-y: scroll;
 }
 
 .excel-container {
@@ -37,7 +42,8 @@ body {
     flex-direction: column;
     height: 100vh;
     width: 100%;
-    overflow: hidden;
+    min-width: 800px;
+    overflow-x: visible;
     background-color: #f0f0f0;
     border: 2px solid var(--excel-border);
     box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
@@ -137,7 +143,8 @@ body {
     flex-grow: 1;
     padding: 0;
     width: 100%;
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .salary-section {
@@ -148,6 +155,7 @@ body {
     background-color: var(--excel-cell);
     border: 1px solid var(--excel-border);
     flex-wrap: wrap;
+    min-width: 800px;
 }
 
 .salary-label {
@@ -168,6 +176,7 @@ body {
     padding: 5px;
     background-color: var(--excel-cell);
     border: 1px solid var(--excel-border);
+    min-width: 800px;
 }
 
 .form-title {
@@ -198,6 +207,7 @@ body {
     padding: 5px;
     background-color: var(--excel-cell);
     border: 1px solid var(--excel-border);
+    min-width: 800px;
 }
 
 .rate-row {
@@ -247,8 +257,7 @@ body {
     border: 2px solid #000000;
     overflow: hidden;
     min-height: 150px;
-    width: 100%;
-    max-width: 100%;
+    min-width: 800px;
     position: relative;
     margin-bottom: 5px;
 }
@@ -338,17 +347,18 @@ body {
     display: flex;
     flex-grow: 1;
     overflow-y: scroll;
-    overflow-x: hidden;
+    overflow-x: visible;
     border-top: 1px solid #888;
     position: relative;
     width: 100%;
-    max-width: 100%;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: thin !important;
+    -ms-overflow-style: auto !important;
 }
 
 .grid-with-row-headers::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    width: 8px;
+    height: 8px;
+    display: block !important;
 }
 
 .row-headers {
@@ -380,10 +390,8 @@ body {
 .grid {
     display: flex;
     flex-direction: column;
-    width: 100%;
+    min-width: 800px;
     flex-grow: 1;
-    min-width: 0;
-    max-width: 100%;
 }
 
 .grid-row {
@@ -488,6 +496,7 @@ body {
     border: 1px solid #888;
     padding: 8px;
     width: 100%;
+    min-width: 800px;
 }
 
 .budget-row {
@@ -709,6 +718,28 @@ button:active {
         display: flex;
         flex-direction: column;
     }
+    
+    body {
+        overflow-x: auto;
+    }
+    
+    .excel-container {
+        min-width: 800px;
+        overflow-x: visible;
+    }
+    
+    /* Mantener visible la barra de desplazamiento horizontal */
+    .spreadsheet-area::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+        height: 8px;
+        display: block;
+    }
+    
+    .spreadsheet-area::-webkit-scrollbar-thumb,
+    body::-webkit-scrollbar-thumb {
+        background-color: #888;
+        border-radius: 4px;
+    }
 }
 
 @media screen and (max-width: 480px) {
@@ -855,14 +886,14 @@ button:active {
     .grid-with-row-headers {
         /* Improve scrolling on iOS */
         overflow-y: scroll;
-        overflow-x: hidden;
+        overflow-x: visible;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; /* Firefox */
-        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: thin !important;
+        -ms-overflow-style: auto !important;
     }
     
     .grid-with-row-headers::-webkit-scrollbar {
-        display: none; /* Chrome, Safari, Opera */
+        display: block !important;
     }
     
     .grid {
@@ -895,17 +926,25 @@ button:active {
     /* These styles will only apply to mobile devices */
     .grid-with-row-headers {
         overflow-y: scroll !important;
-        overflow-x: hidden !important;
+        overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
-        overscroll-behavior: contain;
-        width: 100%;
-        max-width: 100vw;
-        scrollbar-width: none !important; /* Firefox */
-        -ms-overflow-style: none !important; /* IE and Edge */
+        scrollbar-width: thin !important;
+        -ms-overflow-style: auto !important;
     }
     
     .grid-with-row-headers::-webkit-scrollbar {
-        display: none !important; /* Chrome, Safari, Opera */
+        display: block !important;
+        width: 8px !important;
+        height: 8px !important;
+    }
+    
+    body {
+        overflow-x: auto !important;
+        overflow-y: scroll !important;
+    }
+    
+    .spreadsheet-area {
+        overflow-x: auto !important;
     }
     
     .grid {
@@ -966,6 +1005,7 @@ button:active {
     padding: 5px;
     background-color: var(--excel-cell);
     border: 1px solid var(--excel-border);
+    min-width: 800px;
 }
 
 .budget-title {
@@ -1435,4 +1475,528 @@ button:active {
         width: 100%;
         margin-bottom: 5px;
     }
+}
+
+/* Investment Tracker styles */
+.investments-dashboard {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    margin: 20px 0;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+
+.section-title h2 {
+    font-size: 18px;
+    margin: 0;
+    color: #000080;
+}
+
+.investments-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.investments-actions button {
+    padding: 5px 10px;
+    background-color: #e0e0e0;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.investments-actions button:hover {
+    background-color: #d0d0d0;
+}
+
+.investments-summary {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 15px;
+}
+
+.investment-summary-card {
+    flex: 1;
+    padding: 15px;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    text-align: center;
+}
+
+.summary-title {
+    font-size: 14px;
+    margin-bottom: 5px;
+    color: #666;
+}
+
+.summary-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #000080;
+}
+
+.summary-value.positive {
+    color: green;
+}
+
+.summary-value.negative {
+    color: red;
+}
+
+.investments-chart-container {
+    height: 300px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+
+.investments-grid {
+    border: 1px solid #ccc;
+    margin-top: 20px;
+}
+
+.investments-grid-header {
+    display: flex;
+    background-color: #e0e0e0;
+    border-bottom: 1px solid #ccc;
+    font-weight: bold;
+}
+
+.investments-grid-cell {
+    flex: 1;
+    padding: 8px;
+    border-right: 1px solid #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.investments-grid-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.investments-grid-row {
+    display: flex;
+    border-bottom: 1px solid #eee;
+}
+
+.investments-grid-row:hover {
+    background-color: #f5f5f5;
+}
+
+.investments-grid-cell.profit {
+    color: green;
+}
+
+.investments-grid-cell.loss {
+    color: red;
+}
+
+.investments-grid-cell.actions {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.action-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #333;
+    padding: 2px 5px;
+}
+
+.action-button:hover {
+    background-color: #eee;
+}
+
+.action-button.edit {
+    color: #007bff;
+}
+
+.action-button.delete {
+    color: #dc3545;
+}
+
+/* Investment Modal Styles */
+#investment-modal .modal-content {
+    max-width: 600px;
+    padding: 20px;
+}
+
+#investment-modal .form-group {
+    margin-bottom: 15px;
+}
+
+#investment-modal label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+#investment-modal input,
+#investment-modal select,
+#investment-modal textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+}
+
+#investment-modal .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+#investment-modal button {
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+/* Responsive styles for investments section */
+@media screen and (max-width: 768px) {
+    .investments-summary {
+        flex-wrap: wrap;
+    }
+    
+    .investment-summary-card {
+        flex: 1 0 45%;
+    }
+    
+    .investments-chart-container {
+        height: 250px;
+    }
+    
+    .investments-grid-header, .investments-grid-row {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(100px, 1fr));
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .investments-summary {
+        flex-direction: column;
+    }
+    
+    .investment-summary-card {
+        margin-bottom: 10px;
+    }
+    
+    .investments-grid-header, .investments-grid-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(100px, 1fr));
+    }
+    
+    .investments-grid-body {
+        overflow-x: auto;
+    }
+}
+
+/* Estilos para la nueva sección de transferencias y comisiones */
+.transfer-form {
+    margin-top: 15px;
+    border-top: 1px solid #666;
+    padding-top: 10px;
+    min-width: 800px;
+}
+
+.commission-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.commission-details label {
+    margin-right: 5px;
+}
+
+.commission-details input {
+    width: 80px;
+}
+
+.account-balances {
+    margin-top: 15px;
+    border: 1px solid #666;
+    padding: 10px;
+    background-color: #ececec;
+    min-width: 800px;
+}
+
+.balance-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+}
+
+.balance-item {
+    display: flex;
+    align-items: center;
+}
+
+.balance-item label {
+    margin-right: 5px;
+    font-weight: bold;
+}
+
+.balance-item input {
+    width: 90px;
+}
+
+#update-balances, #register-transfer {
+    background-color: #000080;
+    color: white;
+    border: 1px solid #666;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+
+#update-balances:hover, #register-transfer:hover {
+    background-color: #0000a0;
+}
+
+/* Estilos para barras de desplazamiento en toda la aplicación */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Re-habilitar scrollbars para Firefox e IE/Edge */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+    -ms-overflow-style: auto;
+}
+
+/* Ajustes específicos para la vista del grid */
+.grid-with-row-headers {
+    display: flex;
+    flex-grow: 1;
+    overflow-y: scroll;
+    overflow-x: visible;
+    border-top: 1px solid #888;
+    position: relative;
+    width: 100%;
+    scrollbar-width: thin !important;
+    -ms-overflow-style: auto !important;
+}
+
+.grid-with-row-headers::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    display: block !important;
+}
+
+/* Eliminar código que oculta las scrollbars en iOS */
+@supports (-webkit-touch-callout: none) {
+    .grid-with-row-headers {
+        overflow-y: scroll;
+        overflow-x: visible;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin !important;
+        -ms-overflow-style: auto !important;
+    }
+    
+    .grid-with-row-headers::-webkit-scrollbar {
+        display: block !important;
+    }
+}
+
+/* Estilos para la página de transferencias */
+.account-management-section, 
+.transfer-management-section, 
+.transfers-history-section {
+    margin-bottom: 20px;
+    background-color: var(--excel-cell);
+    border: 1px solid var(--excel-border);
+    padding: 15px;
+    min-width: 800px;
+}
+
+.section-title {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--excel-border);
+    padding-bottom: 5px;
+}
+
+.account-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.account-card {
+    flex: 1;
+    min-width: 250px;
+    border: 1px solid var(--excel-border);
+    padding: 15px;
+    background-color: #f5f5f5;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.account-card-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed var(--excel-border);
+    padding-bottom: 5px;
+}
+
+.account-name {
+    font-weight: bold;
+    color: var(--excel-header);
+}
+
+.account-currency {
+    color: #666;
+}
+
+.account-balance {
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+}
+
+.account-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+}
+
+.account-edit input {
+    width: 100%;
+    padding: 5px;
+    margin-top: 5px;
+    border: 1px solid var(--excel-border);
+}
+
+.fee-details {
+    display: flex;
+    gap: 15px;
+    margin-left: 15px;
+    align-items: center;
+}
+
+.fee-details span {
+    font-size: 14px;
+    color: #333;
+}
+
+#fee-amount {
+    font-weight: bold;
+    color: #f00;
+}
+
+#net-amount {
+    font-weight: bold;
+    color: #080;
+}
+
+.transfers-grid {
+    border: 1px solid var(--excel-border);
+    margin-top: 10px;
+}
+
+.transfers-grid-header {
+    display: flex;
+    background-color: #d0d0d0;
+    font-weight: bold;
+    border-bottom: 1px solid var(--excel-border);
+}
+
+.transfers-grid-cell {
+    flex: 1;
+    padding: 8px;
+    border-right: 1px solid var(--excel-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.transfers-grid-cell:last-child {
+    border-right: none;
+}
+
+.transfers-grid-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.transfers-grid-row {
+    display: flex;
+    border-bottom: 1px solid var(--excel-border);
+}
+
+.transfers-grid-row:last-child {
+    border-bottom: none;
+}
+
+.transfers-grid-row:nth-child(even) {
+    background-color: #f5f5f5;
+}
+
+.transfer-delete {
+    color: #f00;
+    cursor: pointer;
+    text-align: center;
+}
+
+.form-actions {
+    margin-top: 15px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+#register-transfer {
+    background-color: var(--excel-header);
+    color: white;
+    padding: 8px 15px;
+    border: 1px solid var(--excel-border);
+    cursor: pointer;
+}
+
+#register-transfer:hover {
+    background-color: #000050;
+}
+
+#update-accounts {
+    background-color: var(--excel-header);
+    color: white;
+    padding: 8px 15px;
+    border: 1px solid var(--excel-border);
+    cursor: pointer;
 } 

@@ -10,7 +10,8 @@ const AppStorage = {
         todos: 30 * 60 * 1000,    // 30 minutes
         rates: 60 * 60 * 1000,    // 1 hour
         salary: 24 * 60 * 60 * 1000, // 24 hours
-        stats: 30 * 60 * 1000     // 30 minutes
+        stats: 30 * 60 * 1000,     // 30 minutes
+        investments: 30 * 60 * 1000 // 30 minutes
     },
     
     // Storage Keys
@@ -22,7 +23,10 @@ const AppStorage = {
         activeRateType: 'retro_money_active_rate',
         salary: 'retro_money_salary',
         budgetAllocations: 'retro_money_budget_allocations',
-        weeklyStats: 'retro_money_weekly_stats'
+        weeklyStats: 'retro_money_weekly_stats',
+        investments: 'retro_money_investments',
+        accounts: 'retro_money_accounts',
+        transfers: 'retro_money_transfers'
     },
     
     /**
@@ -175,6 +179,13 @@ const AppStorage = {
                 console.error('Error deleting expense:', error);
                 callback([]);
             });
+        },
+        
+        /**
+         * Invalidate expenses cache
+         */
+        invalidateCache: function() {
+            AppStorage.remove(AppStorage.keys.expenses);
         }
     },
     
@@ -319,6 +330,13 @@ const AppStorage = {
                     console.error('Error fetching budget allocations:', error);
                     callback(null);
                 });
+        },
+        
+        /**
+         * Invalidate budget allocations cache
+         */
+        invalidateCache: function() {
+            AppStorage.remove(AppStorage.keys.budgetAllocations);
         }
     },
     
@@ -491,6 +509,284 @@ const AppStorage = {
                     console.error('Error fetching weekly stats:', error);
                     callback([]);
                 });
+        }
+    },
+    
+    // Investments specific methods
+    investments: {
+        /**
+         * Get investments from cache or API
+         * @param {Function} callback - Callback function for data
+         * @param {boolean} forceRefresh - Force API refresh
+         */
+        get: function(callback, forceRefresh = false) {
+            const investments = !forceRefresh ? 
+                AppStorage.get(AppStorage.keys.investments, AppStorage.cacheExpiry.investments) : null;
+            
+            if (investments && !forceRefresh) {
+                callback(investments);
+                return;
+            }
+            
+            // Fetch from API
+            fetch('/api/investments')
+                .then(response => response.json())
+                .then(data => {
+                    AppStorage.set(AppStorage.keys.investments, data);
+                    callback(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching investments:', error);
+                    callback(null);
+                });
+        },
+        
+        /**
+         * Add a new investment
+         * @param {Object} investment - Investment data
+         * @param {Function} callback - Callback on success
+         */
+        add: function(investment, callback) {
+            fetch('/api/investments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(investment)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Force refresh investments data
+                    this.get(callback, true);
+                } else {
+                    callback(null);
+                }
+            })
+            .catch(error => {
+                console.error('Error adding investment:', error);
+                callback(null);
+            });
+        },
+        
+        /**
+         * Update an investment
+         * @param {number} id - Investment ID
+         * @param {Object} data - Updated investment data
+         * @param {Function} callback - Callback on success
+         */
+        update: function(id, data, callback) {
+            fetch(`/api/investments/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    // Force refresh investments data
+                    this.get(callback, true);
+                } else {
+                    callback(null);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating investment:', error);
+                callback(null);
+            });
+        },
+        
+        /**
+         * Delete an investment
+         * @param {number} id - Investment ID
+         * @param {Function} callback - Callback on success
+         */
+        delete: function(id, callback) {
+            fetch(`/api/investments/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Force refresh investments data
+                    this.get(callback, true);
+                } else {
+                    callback(null);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting investment:', error);
+                callback(null);
+            });
+        },
+        
+        /**
+         * Invalidate investments cache
+         */
+        invalidateCache: function() {
+            AppStorage.remove(AppStorage.keys.investments);
+        }
+    },
+    
+    // Accounts management
+    accounts: {
+        /**
+         * Get accounts from cache or API
+         * @param {Function} callback - Callback function for account data
+         * @param {boolean} forceRefresh - Force API refresh
+         */
+        get: function(callback, forceRefresh = false) {
+            // Always refresh the accounts data to ensure ARS balance is updated
+            // The backend handles the ARS account calculation based on Belo and dolar cripto
+            forceRefresh = true;
+            
+            const accounts = !forceRefresh ? 
+                AppStorage.get(AppStorage.keys.accounts, Infinity) : null;
+            
+            if (accounts && !forceRefresh) {
+                callback(accounts);
+                return;
+            }
+            
+            // Fetch from API or use defaults if API fails
+            fetch('/api/accounts')
+                .then(response => response.json())
+                .then(data => {
+                    AppStorage.set(AppStorage.keys.accounts, data);
+                    callback(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching accounts:', error);
+                    // Default accounts if API fails
+                    const defaultAccounts = {
+                        payoneer: { balance: 0, currency: 'USD', name: 'Payoneer', fee_percent: 0.03 },
+                        belo: { balance: 0, currency: 'USD', name: 'Belo', fee_percent: 0.01 },
+                        ars: { balance: 0, currency: 'ARS', name: 'Cuenta ARS', fee_percent: 0 }
+                    };
+                    AppStorage.set(AppStorage.keys.accounts, defaultAccounts);
+                    callback(defaultAccounts);
+                });
+        },
+        
+        /**
+         * Update account balances
+         * @param {Object} accountData - Updated account data
+         * @param {Function} callback - Callback on success
+         */
+        update: function(accountData, callback) {
+            fetch('/api/accounts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(accountData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    AppStorage.set(AppStorage.keys.accounts, accountData);
+                    callback(true, accountData);
+                } else {
+                    callback(false, null);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating accounts:', error);
+                // Fall back to localStorage update if API fails
+                AppStorage.set(AppStorage.keys.accounts, accountData);
+                callback(true, accountData);
+            });
+        }
+    },
+    
+    // Transfers management
+    transfers: {
+        /**
+         * Get transfers from cache or API
+         * @param {Function} callback - Callback function for transfers data
+         * @param {boolean} forceRefresh - Force API refresh
+         */
+        get: function(callback, forceRefresh = false) {
+            const transfers = !forceRefresh ? 
+                AppStorage.get(AppStorage.keys.transfers, AppStorage.cacheExpiry.expenses) : null;
+            
+            if (transfers && !forceRefresh) {
+                callback(transfers);
+                return;
+            }
+            
+            // Fetch from API
+            fetch('/api/transfers')
+                .then(response => response.json())
+                .then(data => {
+                    AppStorage.set(AppStorage.keys.transfers, data);
+                    callback(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching transfers:', error);
+                    callback([]);
+                });
+        },
+        
+        /**
+         * Add a new transfer and update cache
+         * @param {Object} transfer - Transfer data
+         * @param {Function} callback - Callback on success
+         */
+        add: function(transfer, callback) {
+            fetch('/api/transfers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(transfer)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Force refresh transfers data
+                    this.get(callback, true);
+                } else {
+                    callback([]);
+                }
+            })
+            .catch(error => {
+                console.error('Error adding transfer:', error);
+                callback([]);
+            });
+        },
+        
+        /**
+         * Delete a transfer and update cache
+         * @param {number} id - Transfer ID
+         * @param {Function} callback - Callback on success
+         */
+        delete: function(id, callback) {
+            fetch(`/api/transfers/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Force refresh transfers data
+                    this.get(callback, true);
+                } else {
+                    callback([]);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting transfer:', error);
+                callback([]);
+            });
+        },
+        
+        /**
+         * Invalidate transfers cache
+         */
+        invalidateCache: function() {
+            AppStorage.remove(AppStorage.keys.transfers);
         }
     }
 }; 

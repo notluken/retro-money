@@ -33,6 +33,13 @@ let budgetAllocations = []; // Will store budget allocations
 let budgetChart = null; // Chart.js instance
 let pendingExpense = null; // For storing expense that exceeds budget
 
+// Variables para manejar los saldos de cuentas
+let accountBalances = {
+    payoneer: 0,
+    belo: 0,
+    ars: 0
+};
+
 // Initialize the grid
 function initGrid() {
     const grid = document.getElementById('expense-grid');
@@ -201,7 +208,7 @@ function setupExpenseHeaders() {
         { cell: 'D1', value: 'Amount (ARS)', style: 'bold' },
         { cell: 'E1', value: 'Currency', style: 'bold' },
         { cell: 'F1', value: 'Category', style: 'bold' },
-        { cell: 'G1', value: 'Actions', style: 'bold' }
+        { cell: 'G1', value: 'Account', style: 'bold' }
     ];
     
     // First, style all row 1 cells with proper background
@@ -550,7 +557,7 @@ function finishEdit(cell, input) {
         cellFormulas[cellId] = value;
         const calculatedValue = calculateFormula(value);
         cell.textContent = calculatedValue !== null ? calculatedValue : '#ERROR';
-        gridData[cellId] = calculatedValue;
+        gridData[cellId] = value;
     } else {
         cell.textContent = value;
         gridData[cellId] = value;
@@ -611,6 +618,10 @@ function finishEdit(cell, input) {
                         saveExpenseChanges(expense);
                         displayExpenses(); // Refresh to update calculated values
                     }
+                } else if (col === 'F') { // Category
+                    expense.category = value;
+                    saveExpenseChanges(expense);
+                    displayExpenses(); // Refresh to update calculated values
                 }
                 // Currency column is not editable directly
             }
@@ -633,7 +644,8 @@ async function saveExpenseChanges(expense) {
                 date: expense.date,
                 description: expense.description,
                 amount: expense.amount,
-                currency: expense.currency
+                currency: expense.currency,
+                category: expense.category
             })
         });
         
@@ -759,7 +771,7 @@ if (percentButton) {
 }
 
 // Fetch expenses from backend
-async function fetchExpenses() {
+async function fetchExpenses(forceRefresh = false) {
     return new Promise((resolve, reject) => {
         try {
             // Use the storage API instead of direct fetch
@@ -767,7 +779,7 @@ async function fetchExpenses() {
                 expenses = data;
                 displayExpenses(); // This will call updateTotals()
                 resolve(data);
-            });
+            }, forceRefresh); // Pass the forceRefresh parameter
         } catch (error) {
             console.error('Error fetching expenses:', error);
             reject(error);
@@ -822,7 +834,7 @@ function displayExpenses() {
     });
     
     // Populate expenses into grid
-    for (let i = 0; i < expenses.length; i++) {
+    for (let i = 0; i < expenses.length && i < GRID_ROWS - 2; i++) {
         const expense = expenses[i];
         const rowNum = i + 2; // Start from row 2
         
@@ -855,6 +867,7 @@ function displayExpenses() {
         setCellValue(`D${rowNum}`, formatNumber(amountARS));
         setCellValue(`E${rowNum}`, expense.currency);
         setCellValue(`F${rowNum}`, expense.category);
+        setCellValue(`G${rowNum}`, expense.account || 'Payoneer'); // Default to Payoneer if not specified
         
         // Add a delete link
         const deleteCell = document.getElementById(`G${rowNum}`);
@@ -862,13 +875,13 @@ function displayExpenses() {
             deleteCell.innerHTML = '';
             const deleteLink = document.createElement('a');
             deleteLink.href = '#';
-            deleteLink.textContent = 'Delete';
+            deleteLink.textContent = `${expense.account || 'Payoneer'} | Delete`;
             deleteLink.addEventListener('click', function(e) {
                 e.preventDefault();
                 deleteExpense(expense.id);
             });
             deleteCell.appendChild(deleteLink);
-            gridData[`G${rowNum}`] = 'Delete';
+            gridData[`G${rowNum}`] = `${expense.account || 'Payoneer'} | Delete`;
         }
     }
     
@@ -888,12 +901,14 @@ document.getElementById('add-expense').addEventListener('click', async () => {
     const amountInput = document.getElementById('expense-amount');
     const currencySelect = document.getElementById('expense-currency');
     const categorySelect = document.getElementById('expense-category');
+    const accountSelect = document.getElementById('expense-account');
     
     const date = dateInput.value || new Date().toISOString().split('T')[0];
     const description = descInput.value || 'Unnamed expense';
     const amount = parseFloat(amountInput.value);
     const currency = currencySelect.value;
     const category = categorySelect.value;
+    const account = accountSelect.value;
     
     if (!isNaN(amount) && amount > 0) {
         // Check if this expense would exceed budget limits
@@ -918,7 +933,7 @@ document.getElementById('add-expense').addEventListener('click', async () => {
             // Now check if the USD amount exceeds the budget limit
             if (matchingAllocation.actual + amountInUSD > matchingAllocation.allocated * 1.2) {
                 // This expense would exceed 120% of the budget
-                pendingExpense = { date, description, amount, currency, category };
+                pendingExpense = { date, description, amount, currency, category, account };
                 
                 // Show confirmation modal
                 document.getElementById('budget-exceed-modal').style.display = 'block';
@@ -926,7 +941,7 @@ document.getElementById('add-expense').addEventListener('click', async () => {
             }
         }
         
-        await addExpense(date, description, amount, currency, category);
+        await addExpense(date, description, amount, currency, category, account);
     } else {
         alert('Please enter a valid amount');
     }
@@ -935,8 +950,8 @@ document.getElementById('add-expense').addEventListener('click', async () => {
 // Confirm expense that exceeds budget
 document.getElementById('confirm-expense').addEventListener('click', async () => {
     if (pendingExpense) {
-        const { date, description, amount, currency, category } = pendingExpense;
-        await addExpense(date, description, amount, currency, category);
+        const { date, description, amount, currency, category, account } = pendingExpense;
+        await addExpense(date, description, amount, currency, category, account);
         pendingExpense = null;
     }
     document.getElementById('budget-exceed-modal').style.display = 'none';
@@ -949,18 +964,19 @@ document.getElementById('cancel-expense').addEventListener('click', () => {
 });
 
 // Add expense helper function
-async function addExpense(date, description, amount, currency, category) {
+async function addExpense(date, description, amount, currency, category, account) {
     try {
         // Ensure amount has proper precision
         const preciseAmount = parseFloat(parseFloat(amount).toFixed(2));
-        console.log(`Adding expense: ${description}, Amount: ${amount} -> ${preciseAmount} ${currency}`);
+        console.log(`Adding expense: ${description}, Amount: ${amount} -> ${preciseAmount} ${currency}, Account: ${account}`);
         
         const expenseData = { 
             date, 
             description, 
             amount: preciseAmount, // Use precise amount
             currency, 
-            category 
+            category,
+            account: account || 'Payoneer' // Default to Payoneer if not specified
         };
         
         // Use the storage API instead of direct fetch
@@ -974,6 +990,11 @@ async function addExpense(date, description, amount, currency, category) {
             expenses = data;
             displayExpenses();
             
+            // Update account balance if an account was specified
+            if (account) {
+                updateAccountBalanceFromExpense(account, preciseAmount, currency);
+            }
+            
             // Refresh budgets after the totals are updated
             setTimeout(() => {
                 fetchBudgetAllocations();
@@ -985,99 +1006,84 @@ async function addExpense(date, description, amount, currency, category) {
 }
 
 // Fetch budget allocations from backend
-async function fetchBudgetAllocations() {
-    try {
-        // First, ensure we have the most accurate expense data
-        // Build a category map of our expenses for precise comparisons
-        const categoryMap = {};
-        let totalFromExpenses = 0;
-        
-        expenses.forEach(expense => {
-            // Determine the correct USD amount
-            let usdAmount;
+async function fetchBudgetAllocations(forceRefresh = true) {
+    return new Promise((resolve, reject) => {
+        try {
+            // Always calculate totals from expenses first
+            let totalFromExpenses = 0;
+            const categoryMap = {};
             
-            if (expense.currency === 'ARS') {
-                // Convert ARS to USD
-                const rate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
-                usdAmount = parseFloat((expense.amount / rate).toFixed(2));
-            } else {
-                // Already in USD
-                usdAmount = parseFloat(expense.amount.toFixed(2));
-            }
-            
-            const category = expense.category || 'Fixed Expenses';
-            
-            // Add to category map
-            if (!categoryMap[category]) {
-                categoryMap[category] = 0;
-            }
-            categoryMap[category] = parseFloat((categoryMap[category] + usdAmount).toFixed(2));
-            
-            // Add to total
-            totalFromExpenses = parseFloat((totalFromExpenses + usdAmount).toFixed(2));
-        });
-        
-        console.log('Local expense totals by category:', categoryMap);
-        console.log('Total expenses from local data:', totalFromExpenses);
-        
-        // Use the storage API
-        AppStorage.budget.getAllocations(function(data) {
-            if (data) {
-                budgetAllocations = data.allocations || [];
+            // Sum all expenses by category
+            expenses.forEach(expense => {
+                if (!expense.category) return;
                 
-                // Get the total from the UI for verification
-                const totalUSDElement = document.getElementById('total-usd');
-                let displayedTotal = 0;
+                // Normalize the category name
+                const category = expense.category;
                 
-                if (totalUSDElement) {
-                    // Extract the numeric value from the total-usd element
-                    const totalUSDStr = totalUSDElement.textContent.replace(/[$,]/g, '');
-                    displayedTotal = parseFloat(totalUSDStr);
+                // Convert amount to USD if needed
+                let amountUSD = expense.amount;
+                if (expense.currency === 'ARS') {
+                    amountUSD = exchangeRate > 0 ? expense.amount / exchangeRate : 0;
+                } else if (expense.currency === 'USD-Tarjeta') {
+                    // If tarjeta rate is available, use it; otherwise use the same as blue
+                    const rate = exchangeRateTarjeta > 0 ? exchangeRateTarjeta : exchangeRate;
+                    amountUSD = expense.amount;
+                }
+                
+                // Add to category total
+                if (!categoryMap[category]) {
+                    categoryMap[category] = 0;
+                }
+                categoryMap[category] += amountUSD;
+                
+                // Add to total
+                totalFromExpenses += amountUSD;
+            });
+            
+            // Use the storage API
+            AppStorage.budget.getAllocations(function(data) {
+                if (data) {
+                    budgetAllocations = data.allocations || [];
                     
-                    if (!isNaN(displayedTotal)) {
-                        console.log('Displayed total from UI:', displayedTotal);
+                    // Force the API data to use our locally calculated values
+                    // This ensures complete consistency between the table and chart
+                    if (data.allocations && data.allocations.length > 0) {
+                        data.allocations.forEach(alloc => {
+                            // Use our precise category values from local calculations
+                            if (categoryMap[alloc.name] !== undefined) {
+                                const oldValue = alloc.actual;
+                                alloc.actual = categoryMap[alloc.name];
+                                alloc.remaining = parseFloat((alloc.allocated - alloc.actual).toFixed(2));
+                                alloc.is_over_budget = alloc.remaining < 0;
+                                
+                                console.log(`Adjusting ${alloc.name}: API value ${oldValue} → Local value ${alloc.actual}`);
+                            } else {
+                                // Category with no expenses
+                                alloc.actual = 0;
+                                alloc.remaining = alloc.allocated;
+                                alloc.is_over_budget = false;
+                            }
+                        });
                         
-                        // Check if there's a meaningful difference between totals
-                        if (Math.abs(displayedTotal - totalFromExpenses) > 0.01) {
-                            console.warn('Discrepancy between UI total and calculated total:', 
-                                        {ui: displayedTotal, calculated: totalFromExpenses});
-                        }
+                        // Update the total actual
+                        data.total_actual = totalFromExpenses;
+                        data.total_remaining = parseFloat((data.total_allocated - data.total_actual).toFixed(2));
+                        
+                        console.log('Updated budget data with local calculations:', data);
                     }
-                }
-                
-                // Force the API data to use our locally calculated values
-                // This ensures complete consistency between the table and chart
-                if (data.allocations && data.allocations.length > 0) {
-                    data.allocations.forEach(alloc => {
-                        // Use our precise category values from local calculations
-                        if (categoryMap[alloc.name] !== undefined) {
-                            const oldValue = alloc.actual;
-                            alloc.actual = categoryMap[alloc.name];
-                            alloc.remaining = parseFloat((alloc.allocated - alloc.actual).toFixed(2));
-                            alloc.is_over_budget = alloc.remaining < 0;
-                            
-                            console.log(`Adjusting ${alloc.name}: API value ${oldValue} → Local value ${alloc.actual}`);
-                        } else {
-                            // Category with no expenses
-                            alloc.actual = 0;
-                            alloc.remaining = alloc.allocated;
-                            alloc.is_over_budget = false;
-                        }
-                    });
                     
-                    // Update the total actual
-                    data.total_actual = totalFromExpenses;
-                    data.total_remaining = parseFloat((data.total_allocated - data.total_actual).toFixed(2));
-                    
-                    console.log('Updated budget data with local calculations:', data);
+                    displayBudgetAllocations(data);
+                    updateBudgetChart(data);
+                    resolve(data);
+                } else {
+                    resolve(null);
                 }
-                
-                displayBudgetAllocations(data);
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching budget allocations:', error);
-    }
+            }, forceRefresh); // Pass forceRefresh parameter to control whether to force refresh
+        } catch (error) {
+            console.error('Error fetching budget allocations:', error);
+            reject(error);
+        }
+    });
 }
 
 // Display budget allocations in the grid
@@ -1458,11 +1464,27 @@ async function redistributeBudget(adjustments) {
         });
         
         if (response.ok) {
+            // Invalidate cache explicitly
+            AppStorage.budget.invalidateCache();
+            
+            // Reload with forced refresh
             await fetchBudgetAllocations();
+            
+            // Force UI update after a short delay to ensure data is ready
+            setTimeout(() => {
+                updateBudgetDashboard();
+                updateTotals();
+            }, 300);
+            
             console.log('Budget redistributed successfully');
+        } else {
+            // If the request failed, show error
+            const errorData = await response.json();
+            alert('Error saving budget adjustments: ' + (errorData.message || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error redistributing budget:', error);
+        alert('Error saving budget adjustments. Please try again.');
     }
 }
 
@@ -1717,10 +1739,27 @@ async function initApp() {
     const refreshRateButton = document.getElementById('refresh-rate');
     if (refreshRateButton) {
         refreshRateButton.addEventListener('click', () => {
-            fetchExchangeRate();
-            // Make sure to update expenses before refreshing budget data
-            fetchExpenses().then(() => {
-                fetchBudgetAllocations();
+            // Force refresh exchange rate data from API
+            AppStorage.exchangeRate.get(selectedDolarType || 'blue', function(data) {
+                if (data) {
+                    if (selectedDolarType === 'blue') {
+                        exchangeRate = data.usd_to_ars;
+                    } else {
+                        exchangeRateTarjeta = data.usd_to_ars;
+                    }
+                    updateExpenses();
+                    
+                    // Show notification
+                    showNotification('Exchange rate updated successfully', 'success');
+                }
+            }, true); // Force refresh from API
+            
+            // Make sure to update expenses and budget with fresh data from API
+            fetchExpenses(true).then(() => {
+                showNotification('Expenses updated successfully', 'success');
+                fetchBudgetAllocations(true).then(() => {
+                    showNotification('Budget allocations updated successfully', 'success');
+                });
             });
         });
     }
@@ -1764,6 +1803,12 @@ async function initApp() {
     }
     
     setupBudgetListeners();
+    
+    // Inicializar funcionalidad de comisiones
+    setupTransferFunctionality();
+    
+    // Cargar saldos guardados
+    loadAccountBalances();
 }
 
 // Start the app when the document is loaded
@@ -1879,4 +1924,273 @@ function setCellValue(cellId, value) {
         cell.textContent = value;
         gridData[cellId] = value;
     }
+}
+
+// Función para configurar la funcionalidad de transferencias y comisiones
+function setupTransferFunctionality() {
+    const transferAmount = document.getElementById('transfer-amount');
+    const transferDate = document.getElementById('transfer-date');
+    const transferSource = document.getElementById('transfer-source');
+    const transferDestination = document.getElementById('transfer-destination');
+    const payoneerFee = document.getElementById('payoneer-fee');
+    const beloFee = document.getElementById('belo-fee');
+    const transferNet = document.getElementById('transfer-net');
+    const registerTransferBtn = document.getElementById('register-transfer');
+    
+    // Establecer fecha actual por defecto
+    transferDate.value = new Date().toISOString().split('T')[0];
+    
+    // Calcular comisiones al cambiar el monto
+    transferAmount.addEventListener('input', calculateCommissions);
+    transferSource.addEventListener('change', calculateCommissions);
+    transferDestination.addEventListener('change', calculateCommissions);
+    
+    // Botón para registrar la transferencia con comisiones
+    registerTransferBtn.addEventListener('click', registerTransfer);
+    
+    // Botón para actualizar saldos de cuentas
+    const updateBalancesBtn = document.getElementById('update-balances');
+    updateBalancesBtn.addEventListener('click', updateAccountBalances);
+    
+    // Función para calcular comisiones
+    function calculateCommissions() {
+        const amount = parseFloat(transferAmount.value) || 0;
+        const source = transferSource.value;
+        const destination = transferDestination.value;
+        
+        let payoneerComission = 0;
+        let beloComission = 0;
+        
+        // Calcular comisión de Payoneer (0.3%) solo si es la fuente
+        if (source === 'Payoneer') {
+            payoneerComission = parseFloat((amount * 0.003).toFixed(2));
+        }
+        
+        // Calcular comisión de Belo (0.1%) solo si es el destino desde Payoneer
+        if (source === 'Payoneer' && destination === 'Belo') {
+            beloComission = parseFloat((amount * 0.001).toFixed(2));
+        }
+        
+        // Calcular monto neto
+        const netAmount = parseFloat((amount - payoneerComission - beloComission).toFixed(2));
+        
+        // Actualizar valores en la interfaz
+        payoneerFee.value = payoneerComission;
+        beloFee.value = beloComission;
+        transferNet.value = netAmount;
+    }
+    
+    // Función para registrar la transferencia y sus comisiones
+    async function registerTransfer() {
+        const amount = parseFloat(transferAmount.value) || 0;
+        if (amount <= 0) {
+            alert('Por favor, ingrese un monto válido');
+            return;
+        }
+        
+        const date = transferDate.value;
+        const source = transferSource.value;
+        const destination = transferDestination.value;
+        const payoneerComission = parseFloat(payoneerFee.value) || 0;
+        const beloComission = parseFloat(beloFee.value) || 0;
+        const netAmount = parseFloat(transferNet.value) || 0;
+        
+        // Registrar comisión de Payoneer si existe
+        if (payoneerComission > 0) {
+            await addExpense(
+                date,
+                `Comisión Payoneer (transferencia ${amount} USD)`,
+                payoneerComission,
+                'USD-Blue',
+                'Comisiones'
+            );
+        }
+        
+        // Registrar comisión de Belo si existe
+        if (beloComission > 0) {
+            await addExpense(
+                date,
+                `Comisión Belo (transferencia ${amount} USD)`,
+                beloComission,
+                'USD-Blue',
+                'Comisiones'
+            );
+        }
+        
+        // Actualizar saldos de cuentas automáticamente
+        updateAccountBalancesFromTransfer(source, destination, amount, payoneerComission, beloComission);
+        
+        // Limpiar el formulario
+        transferAmount.value = '';
+        calculateCommissions();
+        
+        alert('Transferencia y comisiones registradas correctamente');
+    }
+    
+    // Iniciar con cálculo de comisiones (para los valores por defecto)
+    calculateCommissions();
+}
+
+// Función para cargar saldos de cuentas guardados en localStorage
+function loadAccountBalances() {
+    const savedBalances = localStorage.getItem('retro_money_account_balances');
+    if (savedBalances) {
+        try {
+            accountBalances = JSON.parse(savedBalances);
+            
+            // Actualizar los inputs con los valores guardados
+            document.getElementById('payoneer-balance').value = accountBalances.payoneer;
+            document.getElementById('belo-balance').value = accountBalances.belo;
+            document.getElementById('ars-balance').value = accountBalances.ars;
+        } catch (error) {
+            console.error('Error al cargar saldos de cuentas:', error);
+        }
+    }
+}
+
+// Función para actualizar saldos de cuentas manualmente
+function updateAccountBalances() {
+    const payoneerBalance = parseFloat(document.getElementById('payoneer-balance').value) || 0;
+    const beloBalance = parseFloat(document.getElementById('belo-balance').value) || 0;
+    const arsBalance = parseFloat(document.getElementById('ars-balance').value) || 0;
+    
+    accountBalances = {
+        payoneer: payoneerBalance,
+        belo: beloBalance,
+        ars: arsBalance
+    };
+    
+    saveAccountBalances();
+    alert('Saldos de cuentas actualizados correctamente');
+}
+
+// Función para actualizar saldos basados en una transferencia
+function updateAccountBalancesFromTransfer(source, destination, amount, payoneerFee, beloFee) {
+    if (source === 'Payoneer') {
+        accountBalances.payoneer -= amount;
+    } else if (source === 'Belo') {
+        accountBalances.belo -= amount;
+    } else if (source === 'Cuenta ARS') {
+        accountBalances.ars -= amount;
+    }
+    
+    if (destination === 'Payoneer') {
+        accountBalances.payoneer += amount - payoneerFee;
+    } else if (destination === 'Belo') {
+        // El monto neto que llega a Belo
+        const netAmount = amount - payoneerFee - beloFee;
+        accountBalances.belo += netAmount;
+    } else if (destination === 'Cuenta ARS') {
+        // Convertir a ARS y agregar a cuenta ARS
+        const netAmountUSD = amount - payoneerFee;
+        accountBalances.ars += netAmountUSD * exchangeRate;
+    }
+    
+    // Actualizar los inputs con los nuevos valores
+    document.getElementById('payoneer-balance').value = accountBalances.payoneer.toFixed(2);
+    document.getElementById('belo-balance').value = accountBalances.belo.toFixed(2);
+    document.getElementById('ars-balance').value = accountBalances.ars.toFixed(2);
+    
+    saveAccountBalances();
+}
+
+// Función para actualizar el saldo de una cuenta cuando se registra un gasto
+function updateAccountBalanceFromExpense(account, amount, currency) {
+    // Si la cuenta no existe o el monto es inválido, no hacer nada
+    if (!account || isNaN(amount) || amount <= 0) return;
+    
+    // Convertir a USD si es necesario
+    let amountInAccountCurrency = amount;
+    
+    if (account === 'Cuenta ARS') {
+        // Si el gasto está en USD y la cuenta es ARS, convertir a ARS
+        if (currency !== 'ARS') {
+            amountInAccountCurrency = amount * exchangeRate;
+        }
+        accountBalances.ars -= amountInAccountCurrency;
+    } else if (account === 'Payoneer') {
+        // Si el gasto está en ARS y la cuenta es Payoneer, convertir a USD
+        if (currency === 'ARS') {
+            amountInAccountCurrency = amount / exchangeRate;
+        }
+        accountBalances.payoneer -= amountInAccountCurrency;
+    } else if (account === 'Belo') {
+        // Si el gasto está en ARS y la cuenta es Belo, convertir a USD
+        if (currency === 'ARS') {
+            amountInAccountCurrency = amount / exchangeRate;
+        }
+        accountBalances.belo -= amountInAccountCurrency;
+    }
+    
+    // Actualizar los inputs con los nuevos valores si existen
+    const payoneerInput = document.getElementById('payoneer-balance');
+    const beloInput = document.getElementById('belo-balance');
+    const arsInput = document.getElementById('ars-balance');
+    
+    if (payoneerInput) payoneerInput.value = accountBalances.payoneer.toFixed(2);
+    if (beloInput) beloInput.value = accountBalances.belo.toFixed(2);
+    if (arsInput) arsInput.value = accountBalances.ars.toFixed(2);
+    
+    saveAccountBalances();
+}
+
+// Función para guardar saldos de cuentas en localStorage
+function saveAccountBalances() {
+    localStorage.setItem('retro_money_account_balances', JSON.stringify(accountBalances));
+}
+
+// Display a notification message
+function showNotification(message, type = 'info') {
+    // Check if notification container exists
+    let notificationContainer = document.getElementById('notification-container');
+    
+    if (!notificationContainer) {
+        // Create notification container if it doesn't exist
+        notificationContainer = document.createElement('div');
+        notificationContainer.id = 'notification-container';
+        notificationContainer.style.position = 'fixed';
+        notificationContainer.style.top = '20px';
+        notificationContainer.style.right = '20px';
+        notificationContainer.style.zIndex = '9999';
+        document.body.appendChild(notificationContainer);
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.style.backgroundColor = type === 'success' ? '#4CAF50' : 
+                                        type === 'error' ? '#F44336' : 
+                                        type === 'warning' ? '#FF9800' : '#2196F3';
+    notification.style.color = 'white';
+    notification.style.padding = '15px';
+    notification.style.margin = '10px';
+    notification.style.borderRadius = '5px';
+    notification.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+    notification.style.minWidth = '200px';
+    notification.style.maxWidth = '350px';
+    
+    // Add message
+    notification.textContent = message;
+    
+    // Add close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.float = 'right';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.marginLeft = '10px';
+    closeBtn.addEventListener('click', () => {
+        notification.remove();
+    });
+    
+    notification.insertBefore(closeBtn, notification.firstChild);
+    
+    // Add to container
+    notificationContainer.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
 } 
