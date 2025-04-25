@@ -1,40 +1,40 @@
 /**
- * Transfers.js - Gestión de transferencias y cuentas
+ * Transfers.js - Account and Transfer Management
  * Retro Money App
  */
 
-// Variables globales
+// Global variables
 let accounts = {};
 let transferHistory = [];
 let exchangeRate = 0;
 let cryptoRate = 0;
 
-// Inicializar la página cuando se carga el DOM
+// Initialize the page when DOM is loaded
 document.addEventListener('DOMContentLoaded', initTransfersPage);
 
-// Función principal de inicialización
+// Main initialization function
 async function initTransfersPage() {
-    console.log('Inicializando página de transferencias...');
+    console.log('Initializing transfers page...');
     
-    // Primero obtener la tasa de cambio
+    // First get the exchange rate
     await fetchExchangeRate();
     
-    // Cargar cuentas y transferencias
+    // Load accounts and transfers
     await loadAccounts();
     await loadTransfers();
     
-    // Configurar eventos
+    // Set up event listeners
     setupEventListeners();
     
-    // Establecer un intervalo para actualizar la tasa de cambio y las cuentas cada 5 minutos
+    // Set an interval to update exchange rate and accounts every 5 minutes
     setInterval(async function() {
-        console.log('Actualizando tasa de cambio y cuentas...');
+        console.log('Updating exchange rate and accounts...');
         await fetchExchangeRate();
         await loadAccounts();
-    }, 5 * 60 * 1000); // 5 minutos
+    }, 5 * 60 * 1000); // 5 minutes
 }
 
-// Cargar la tasa de cambio
+// Load exchange rate
 async function fetchExchangeRate() {
     // Fetch crypto dollar rate directly from the API
     try {
@@ -44,35 +44,35 @@ async function fetchExchangeRate() {
         }
         const cryptoData = await cryptoResponse.json();
         cryptoRate = cryptoData.venta;
-        console.log('Tasa de cambio cripto actualizada:', cryptoRate);
+        console.log('Crypto exchange rate updated:', cryptoRate);
     } catch (error) {
         console.error('Error fetching crypto rate:', error);
-        cryptoRate = 1230; // Valor por defecto si falla
-        console.warn('Usando tasa de cambio cripto predeterminada:', cryptoRate);
+        cryptoRate = 1230; // Default value if it fails
+        console.warn('Using default crypto exchange rate:', cryptoRate);
     }
     
     return cryptoRate;
 }
 
-// Cargar cuentas desde el API
+// Load accounts from API
 async function loadAccounts() {
     return new Promise((resolve) => {
-        // Siempre obtener las cuentas frescas del API
+        // Always get fresh accounts from the API
         AppStorage.accounts.get(function(accountsData) {
             accounts = accountsData;
             
-            // Verificar si necesitamos actualizar manualmente la cuenta ARS
+            // Check if we need to manually update the ARS account
             const arsAccount = Object.values(accounts).find(acc => acc.currency === 'ARS');
             const beloAccount = Object.values(accounts).find(acc => acc.name === 'Belo');
             
             if (arsAccount && beloAccount && cryptoRate > 0) {
-                // Verificar si el balance de ARS está actualizado según la tasa cripto
+                // Check if the ARS balance is updated according to the crypto rate
                 const expectedArsBalance = beloAccount.balance * cryptoRate;
                 const diff = Math.abs(expectedArsBalance - arsAccount.balance);
                 
-                // Si hay una diferencia significativa (>1%), actualizar en el frontend
+                // If there is a significant difference (>1%), update in the frontend
                 if (diff > (arsAccount.balance * 0.01) || arsAccount.balance === 0) {
-                    console.log(`Actualizando cuenta ARS manualmente: ${arsAccount.balance} -> ${expectedArsBalance}`);
+                    console.log(`Updating ARS account manually: ${arsAccount.balance} -> ${expectedArsBalance}`);
                     arsAccount.balance = expectedArsBalance;
                 }
             }
@@ -80,11 +80,11 @@ async function loadAccounts() {
             renderAccounts();
             populateAccountSelects();
             resolve(accounts);
-        }, true); // Forzar refresco
+        }, true); // Force refresh
     });
 }
 
-// Cargar historial de transferencias
+// Load transfer history
 async function loadTransfers() {
     return new Promise((resolve) => {
         AppStorage.transfers.get(function(transfersData) {
@@ -95,15 +95,15 @@ async function loadTransfers() {
     });
 }
 
-// Configurar eventos de interacción
+// Set up interaction events
 function setupEventListeners() {
-    // Evento para actualizar saldos de cuentas
+    // Event for updating account balances
     const updateAccountsBtn = document.getElementById('update-accounts');
     if (updateAccountsBtn) {
         updateAccountsBtn.addEventListener('click', updateAccountBalances);
     }
     
-    // Eventos para la transferencia
+    // Events for transfers
     const transferFromSelect = document.getElementById('transfer-from');
     const transferToSelect = document.getElementById('transfer-to');
     const transferAmountInput = document.getElementById('transfer-amount');
@@ -114,32 +114,32 @@ function setupEventListeners() {
         transferAmountInput.addEventListener('input', calculateFees);
     }
     
-    // Evento para registrar transferencia
+    // Event for registering transfer
     const registerTransferBtn = document.getElementById('register-transfer');
     if (registerTransferBtn) {
         registerTransferBtn.addEventListener('click', registerTransfer);
     }
     
-    // Establecer la fecha actual por defecto
+    // Set current date as default
     const transferDateInput = document.getElementById('transfer-date');
     if (transferDateInput) {
         transferDateInput.value = new Date().toISOString().split('T')[0];
     }
 }
 
-// Renderizar tarjetas de cuentas
+// Render account cards
 function renderAccounts() {
     const accountCardsContainer = document.getElementById('account-cards');
     if (!accountCardsContainer) return;
     
     accountCardsContainer.innerHTML = '';
     
-    // Iterar sobre cada cuenta
+    // Iterate over each account
     Object.values(accounts).forEach(account => {
         const accountCard = document.createElement('div');
         accountCard.className = 'account-card';
         
-        // Formatear saldo según la moneda
+        // Format balance according to currency
         const formattedBalance = account.currency === 'ARS' 
             ? `ARS ${formatNumber(account.balance)}` 
             : `$${formatNumber(account.balance, true)}`;
@@ -151,7 +151,7 @@ function renderAccounts() {
             </div>
             <div class="account-balance">${formattedBalance}</div>
             <div class="account-details">
-                <div class="account-fee">Comisión: ${(account.fee_percent * 100).toFixed(1)}%</div>
+                <div class="account-fee">Fee: ${(account.fee_percent * 100).toFixed(1)}%</div>
                 <div class="account-edit">
                     <input type="number" class="account-balance-input" 
                         data-account-id="${account.id}" 
@@ -165,18 +165,18 @@ function renderAccounts() {
     });
 }
 
-// Poblar los selectores de cuentas
+// Populate account selectors
 function populateAccountSelects() {
     const fromSelect = document.getElementById('transfer-from');
     const toSelect = document.getElementById('transfer-to');
     
     if (!fromSelect || !toSelect) return;
     
-    // Limpiar opciones existentes
+    // Clear existing options
     fromSelect.innerHTML = '';
     toSelect.innerHTML = '';
     
-    // Agregar opciones para cada cuenta
+    // Add options for each account
     Object.values(accounts).forEach(account => {
         const option = document.createElement('option');
         option.value = account.name;
@@ -186,60 +186,48 @@ function populateAccountSelects() {
         toSelect.appendChild(option.cloneNode(true));
     });
     
-    // Seleccionar Payoneer como origen por defecto
+    // Select Payoneer as the default source
     const payoneerOption = Array.from(fromSelect.options).find(opt => opt.value === 'Payoneer');
     if (payoneerOption) {
         payoneerOption.selected = true;
     }
     
-    // Seleccionar Belo como destino por defecto
+    // Select Belo as the default destination
     const beloOption = Array.from(toSelect.options).find(opt => opt.value === 'Belo');
     if (beloOption) {
         beloOption.selected = true;
     }
     
-    // Calcular comisiones iniciales
+    // Calculate initial fees
     calculateFees();
 }
 
-// Calcular comisiones para una transferencia
+// Calculate fees for a transfer
 function calculateFees() {
-    const fromSelect = document.getElementById('transfer-from');
-    const toSelect = document.getElementById('transfer-to');
-    const amountInput = document.getElementById('transfer-amount');
-    const feePayoneerSpan = document.getElementById('fee-payoneer');
-    const feeBeloSpan = document.getElementById('fee-belo');
-    const feeAmountSpan = document.getElementById('fee-amount');
-    const netAmountSpan = document.getElementById('net-amount');
+    const amount = parseFloat(document.getElementById('transfer-amount').value) || 0;
+    const feePayoneerPercentage = 0.03; // 3%
+    const feeBeloPorcentage = 0.01; // 1%
     
-    if (!fromSelect || !toSelect || !amountInput || !feeAmountSpan || !netAmountSpan) return;
+    const feePayoneer = amount * feePayoneerPercentage;
+    const feeBelo = amount * feeBeloPorcentage;
+    const feeTotal = feePayoneer + feeBelo;
+    const netAmount = amount - feeTotal;
     
-    const fromAccountName = fromSelect.value;
-    const toAccountName = toSelect.value;
-    const grossAmount = parseFloat(amountInput.value) || 0;
+    // Use the global cryptoRate variable instead of a hardcoded value
+    const pesoAmount = netAmount * cryptoRate;
     
-    // Encontrar las cuentas correspondientes
-    const fromAccount = Object.values(accounts).find(acc => acc.name === fromAccountName);
-    const toAccount = Object.values(accounts).find(acc => acc.name === toAccountName);
-    
-    if (!fromAccount || !toAccount) return;
-    
-    // Calcular comisiones
-    const fromFee = fromAccount.name === 'Payoneer' ? grossAmount * 0.03 : grossAmount * fromAccount.fee_percent;
-    const toFee = toAccount.name === 'Belo' ? (grossAmount - fromFee) * 0.01 : (grossAmount - fromFee) * toAccount.fee_percent;
-    const totalFees = fromFee + toFee;
-    const netAmount = grossAmount - totalFees;
-    
-    // Actualizar la interfaz
-    if (feePayoneerSpan) feePayoneerSpan.textContent = fromAccount.name === 'Payoneer' ? fromFee.toFixed(2) : '0.00';
-    if (feeBeloSpan) feeBeloSpan.textContent = toAccount.name === 'Belo' ? toFee.toFixed(2) : '0.00';
-    feeAmountSpan.textContent = totalFees.toFixed(2);
-    netAmountSpan.textContent = netAmount.toFixed(2);
+    // Update the display elements
+    document.getElementById('fee-payoneer').textContent = feePayoneer.toFixed(2);
+    document.getElementById('fee-belo').textContent = feeBelo.toFixed(2);
+    document.getElementById('fee-amount').textContent = feeTotal.toFixed(2);
+    document.getElementById('net-amount').textContent = netAmount.toFixed(2);
+    document.getElementById('peso-amount').textContent = formatNumber(pesoAmount);
+    document.getElementById('crypto-rate').textContent = formatNumber(cryptoRate);
 }
 
-// Registrar una nueva transferencia
+// Register a new transfer
 async function registerTransfer() {
-    // Obtener valores del formulario
+    // Get form values
     const dateInput = document.getElementById('transfer-date');
     const descriptionInput = document.getElementById('transfer-description');
     const fromSelect = document.getElementById('transfer-from');
@@ -249,17 +237,17 @@ async function registerTransfer() {
     if (!dateInput || !fromSelect || !toSelect || !amountInput) return;
     
     const date = dateInput.value || new Date().toISOString().split('T')[0];
-    const description = descriptionInput.value || 'Transferencia';
+    const description = descriptionInput.value || 'Transfer';
     const fromAccountName = fromSelect.value;
     const toAccountName = toSelect.value;
     const grossAmount = parseFloat(amountInput.value) || 0;
     
     if (grossAmount <= 0) {
-        alert('Por favor ingrese un monto válido');
+        alert('Please enter a valid amount');
         return;
     }
     
-    // Encontrar las cuentas correspondientes
+    // Find the corresponding accounts
     const fromAccount = Object.values(accounts).find(acc => acc.name === fromAccountName);
     const toAccount = Object.values(accounts).find(acc => acc.name === toAccountName);
     
@@ -268,24 +256,24 @@ async function registerTransfer() {
         return;
     }
     
-    // Verificar saldo suficiente
+    // Check if the source account has enough balance
     if (fromAccount.balance < grossAmount) {
         alert(`Saldo insuficiente en ${fromAccountName}. Saldo actual: ${fromAccount.balance}`);
         return;
     }
     
-    // Calcular comisiones
+    // Calculate fees
     const fromFee = fromAccount.name === 'Payoneer' ? grossAmount * 0.03 : grossAmount * fromAccount.fee_percent;
     const toFee = toAccount.name === 'Belo' ? (grossAmount - fromFee) * 0.01 : (grossAmount - fromFee) * toAccount.fee_percent;
     const totalFees = fromFee + toFee;
     const netAmount = grossAmount - totalFees;
     
-    // Asegurarse de tener la tasa de cripto actualizada si la transferencia involucra ARS
+    // Ensure we have the latest crypto rate if the transfer involves ARS
     if (fromAccount.currency === 'ARS' || toAccount.currency === 'ARS') {
         await fetchExchangeRate();
     }
     
-    // Crear objeto de transferencia
+    // Create transfer object
     const transfer = {
         date,
         from_account: fromAccountName,
@@ -296,69 +284,69 @@ async function registerTransfer() {
         description
     };
     
-    // Guardar la transferencia
+    // Save the transfer
     AppStorage.transfers.add(transfer, function(updatedTransfers) {
         if (updatedTransfers) {
             transferHistory = updatedTransfers;
             
-            // Actualizar saldos de cuentas
+            // Update account balances
             fromAccount.balance -= grossAmount;
             
             if (toAccount.currency === 'ARS') {
-                // Para cuentas en ARS, usar el precio del dólar cripto
+                // For ARS accounts, use crypto rate
                 toAccount.balance += netAmount * cryptoRate;
-                console.log(`Convertido ${netAmount} USD a ${netAmount * cryptoRate} ARS usando tasa cripto ${cryptoRate}`);
+                console.log(`Converted ${netAmount} USD to ${netAmount * cryptoRate} ARS using crypto rate ${cryptoRate}`);
                 
-                // Asegurarse de que la cuenta ARS refleje el saldo correcto
+                // Ensure ARS account reflects the correct balance
                 const arsAccount = Object.values(accounts).find(acc => acc.currency === 'ARS');
                 const beloAccount = Object.values(accounts).find(acc => acc.name === 'Belo');
                 
-                // Si Belo está involucrado en la transferencia, actualizar ARS en consecuencia
+                // If Belo is involved in the transfer, update ARS accordingly
                 if (fromAccountName === 'Belo' || toAccountName === 'Belo') {
-                    console.log('Actualizando cuenta ARS basada en Belo después de transferencia');
+                    console.log('Updating ARS account based on Belo after transfer');
                     arsAccount.balance = beloAccount.balance * cryptoRate;
                 }
             } else if (toAccount.name === 'Belo' && fromAccount.currency === 'USD') {
-                // Para Belo, usar valor de USDC
+                // For Belo, use USDC value
                 toAccount.balance += netAmount;
-                console.log(`Transferido ${netAmount} USD a Belo como USDC`);
+                console.log(`Transferred ${netAmount} USD to Belo as USDC`);
                 
-                // Actualizar cuenta ARS si Belo está involucrado
+                // Update ARS account if Belo is involved
                 const arsAccount = Object.values(accounts).find(acc => acc.currency === 'ARS');
                 if (arsAccount) {
-                    console.log('Actualizando cuenta ARS basada en Belo después de transferencia');
+                    console.log('Updating ARS account based on Belo after transfer');
                     arsAccount.balance = toAccount.balance * cryptoRate;
                 }
             } else {
                 toAccount.balance += netAmount;
-                console.log(`Transferido ${netAmount} ${fromAccount.currency} a ${toAccount.name}`);
+                console.log(`Transferred ${netAmount} ${fromAccount.currency} to ${toAccount.name}`);
             }
             
-            // Registrar comisiones como gastos fijos
-            addCommissionAsExpense(totalFees, date, `Comisión por transferencia ${fromAccountName} -> ${toAccountName}`);
+            // Register fees as fixed expenses
+            addCommissionAsExpense(totalFees, date, `Fee for transfer ${fromAccountName} -> ${toAccountName}`);
             
-            // Guardar cuentas actualizadas
+            // Save updated accounts
             AppStorage.accounts.update(accounts, function(success) {
                 if (success) {
-                    // Recargar datos
+                    // Reload data
                     loadAccounts();
                     renderTransfers();
                     
-                    // Limpiar formulario
+                    // Clear form
                     amountInput.value = '';
                     descriptionInput.value = '';
                     calculateFees();
                     
-                    alert('Transferencia registrada correctamente');
+                    alert('Transfer registered successfully');
                 }
             });
         }
     });
 }
 
-// Registrar la comisión como un gasto fijo
+// Register the fee as a fixed expense
 function addCommissionAsExpense(amount, date, description) {
-    // Si el monto es muy pequeño, no lo registramos
+    // If the amount is too small, we don't register it
     if (amount <= 0) return;
     
     const expense = {
@@ -369,64 +357,84 @@ function addCommissionAsExpense(amount, date, description) {
         currency: 'USD'
     };
     
-    // Usar el API de almacenamiento para agregar el gasto
+    // Use the storage API to add the expense
     AppStorage.expenses.add(expense, function() {
-        console.log('Comisión registrada como gasto fijo:', expense);
+        console.log('Fee registered as fixed expense:', expense);
     });
 }
 
-// Renderizar historial de transferencias
+// Render transfers
 function renderTransfers() {
-    const transfersBody = document.getElementById('transfers-grid-body');
-    if (!transfersBody) return;
+    const transfersGrid = document.getElementById('transfers-grid-body');
+    if (!transfersGrid) return;
     
-    transfersBody.innerHTML = '';
+    transfersGrid.innerHTML = '';
     
+    // If no transfers, show message
     if (!transferHistory || transferHistory.length === 0) {
-        const emptyRow = document.createElement('div');
-        emptyRow.className = 'transfers-grid-row';
-        emptyRow.innerHTML = '<div class="transfers-grid-cell" style="flex: 8; text-align: center;">No hay transferencias registradas</div>';
-        transfersBody.appendChild(emptyRow);
+        transfersGrid.innerHTML = `
+            <div class="transfers-grid-row">
+                <div class="transfers-grid-cell" style="text-align:center; grid-column: 1 / -1;">
+                    No transfers found. Register your first transfer using the form above.
+                </div>
+            </div>
+        `;
         return;
     }
     
-    // Crear filas para cada transferencia
-    transferHistory.forEach(transfer => {
+    // Sort transfers by date (newest first)
+    const sortedTransfers = [...transferHistory].sort((a, b) => {
+        return new Date(b.date) - new Date(a.date);
+    });
+    
+    // Render each transfer
+    sortedTransfers.forEach(transfer => {
         const row = document.createElement('div');
         row.className = 'transfers-grid-row';
         
-        // Formatear fecha
-        const formattedDate = new Date(transfer.date).toLocaleDateString();
-        
         row.innerHTML = `
-            <div class="transfers-grid-cell">${formattedDate}</div>
+            <div class="transfers-grid-cell">${formatDate(transfer.date)}</div>
             <div class="transfers-grid-cell">${transfer.description}</div>
             <div class="transfers-grid-cell">${transfer.from_account}</div>
             <div class="transfers-grid-cell">${transfer.to_account}</div>
             <div class="transfers-grid-cell">$${formatNumber(transfer.gross_amount, true)}</div>
             <div class="transfers-grid-cell">$${formatNumber(transfer.total_fees, true)}</div>
             <div class="transfers-grid-cell">$${formatNumber(transfer.amount, true)}</div>
-            <div class="transfers-grid-cell transfer-delete" data-transfer-id="${transfer.id}">Eliminar</div>
+            <div class="transfers-grid-cell">
+                <span class="transfer-action delete-transfer" data-id="${transfer.id}">Delete</span>
+            </div>
         `;
         
-        transfersBody.appendChild(row);
+        transfersGrid.appendChild(row);
     });
     
-    // Agregar eventos a los botones de eliminar
-    const deleteButtons = document.querySelectorAll('.transfer-delete');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const transferId = this.getAttribute('data-transfer-id');
-            if (transferId && confirm('¿Estás seguro de eliminar esta transferencia?')) {
+    // Add event listeners for delete buttons
+    document.querySelectorAll('.delete-transfer').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const transferId = this.getAttribute('data-id');
+            if (confirm('Are you sure you want to delete this transfer?')) {
                 deleteTransfer(transferId);
             }
         });
     });
 }
 
-// Eliminar una transferencia
+// Helper function to format dates for display
+function formatDate(dateStr) {
+    // If the dateStr is already formatted or not a valid date, return as is
+    if (!dateStr) return '';
+    
+    // Try to parse the date
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    
+    // Format the date as MM/DD/YYYY
+    return date.toLocaleDateString();
+}
+
+// Delete a transfer
 function deleteTransfer(transferId) {
-    // Primero obtenemos la transferencia a eliminar
+    // First get the transfer to delete
     const transferToDelete = transferHistory.find(t => t.id === parseInt(transferId));
     
     if (!transferToDelete) {
@@ -436,129 +444,91 @@ function deleteTransfer(transferId) {
     
     AppStorage.transfers.delete(transferId, function(updatedTransfers) {
         if (updatedTransfers) {
-            // Revertir los saldos de las cuentas
+            // Revert account balances
             const fromAccount = Object.values(accounts).find(acc => acc.name === transferToDelete.from_account);
             const toAccount = Object.values(accounts).find(acc => acc.name === transferToDelete.to_account);
             
             if (fromAccount && toAccount) {
-                // Devolver el monto bruto a la cuenta de origen
+                // Return gross amount to the source account
                 fromAccount.balance += transferToDelete.gross_amount;
                 
-                // Quitar el monto neto de la cuenta de destino
+                // Remove net amount from the destination account
                 if (toAccount.currency === 'ARS' && fromAccount.currency === 'USD') {
-                    // Si fue convertido a ARS usando cripto rate
+                    // If converted to ARS using crypto rate
                     toAccount.balance -= transferToDelete.amount * cryptoRate;
                 } else if (toAccount.name === 'Belo' && fromAccount.currency === 'USD') {
-                    // Si fue transferido a Belo como USDC
+                    // If transferred to Belo as USDC
                     toAccount.balance -= transferToDelete.amount;
                 } else {
-                    // Transferencia regular
+                    // Regular transfer
                     toAccount.balance -= transferToDelete.amount;
                 }
                 
-                // Guardar los cambios en las cuentas
+                // Save account changes
                 AppStorage.accounts.update(accounts, function(success) {
                     if (success) {
                         transferHistory = updatedTransfers;
                         loadAccounts();
                         renderTransfers();
-                        alert('Transferencia eliminada correctamente y saldos actualizados');
+                        alert('Transfer deleted successfully and balances updated');
                     } else {
-                        alert('Error al actualizar los saldos de las cuentas');
+                        alert('Error updating account balances');
                     }
                 });
             } else {
                 transferHistory = updatedTransfers;
                 renderTransfers();
-                alert('Transferencia eliminada, pero no se pudieron actualizar los saldos');
+                alert('Transfer deleted, but balances could not be updated');
             }
         }
     });
 }
 
-// Actualizar saldos de cuentas manualmente
+// Update account balances
 function updateAccountBalances() {
-    // Recopilar valores de los inputs
+    // Get all account balance inputs
     const balanceInputs = document.querySelectorAll('.account-balance-input');
+    let hasChanges = false;
     
-    // Guardar saldo original de Belo
-    const beloAccount = Object.values(accounts).find(acc => acc.name === 'Belo');
-    const arsAccount = Object.values(accounts).find(acc => acc.currency === 'ARS');
-    let originalBeloBalance = beloAccount ? beloAccount.balance : 0;
-    
+    // Update account balances from inputs
     balanceInputs.forEach(input => {
         const accountId = input.getAttribute('data-account-id');
         const newBalance = parseFloat(input.value) || 0;
         
-        // Encontrar la cuenta y actualizar su saldo
-        const accountToUpdate = Object.values(accounts).find(acc => acc.id === parseInt(accountId));
-        if (accountToUpdate) {
-            accountToUpdate.balance = newBalance;
+        if (accounts[accountId] && accounts[accountId].balance !== newBalance) {
+            accounts[accountId].balance = newBalance;
+            hasChanges = true;
         }
     });
     
-    // Actualizar la cuenta ARS según el saldo de Belo y la tasa cripto
-    const beloUpdatedAccount = Object.values(accounts).find(acc => acc.name === 'Belo');
-    
-    // Asegurarse de tener el valor correcto de la tasa cripto
-    if (beloUpdatedAccount && arsAccount) {
-        // Obtener la tasa cripto fresca
-        fetchExchangeRate().then(() => {
-            // Calcular el balance ARS basado en la tasa cripto y el saldo de Belo
-            const newArsBalance = beloUpdatedAccount.balance * cryptoRate;
-            
-            console.log(`Actualizando cuenta ARS: ${arsAccount.balance} -> ${newArsBalance} (Belo: ${beloUpdatedAccount.balance} * Rate: ${cryptoRate})`);
-            
-            // Actualizar el balance de la cuenta ARS
-            arsAccount.balance = newArsBalance;
-            
-            // Buscar el input de la cuenta ARS y actualizarlo
-            const arsInput = document.querySelector(`.account-balance-input[data-account-id="${arsAccount.id}"]`);
-            if (arsInput) {
-                arsInput.value = newArsBalance;
-            }
-            
-            // Guardar todos los cambios
-            saveAccountChanges();
-        });
-    } else {
+    if (hasChanges) {
         saveAccountChanges();
-    }
-    
-    function saveAccountChanges() {
-        // Guardar cambios
-        AppStorage.accounts.update(accounts, function(success) {
-            if (success) {
-                // Recargar cuentas para asegurar que todo está actualizado
-                loadAccounts();
-                alert('Saldos actualizados correctamente');
-            } else {
-                alert('Error al actualizar saldos');
-            }
-        });
+        alert('Account balances updated successfully');
+    } else {
+        alert('No changes detected');
     }
 }
 
-// Función de utilidad para formatear números
+// Utility function to format numbers
 function formatNumber(num, isUSD = false) {
-    // Asegurar que sea un número
+    // Ensure it's a number
     num = parseFloat(num);
     
-    // Verificar valores inválidos
+    // Check for invalid values
     if (isNaN(num)) {
         return "0.00";
     }
     
-    // Formatear según moneda
+    // Format according to currency
     if (isUSD) {
-        // Siempre mostrar 2 decimales para USD
+        // Always show 2 decimals for USD
         return parseFloat(num.toFixed(2)).toFixed(2);
     } else {
-        // Para ARS, sin decimales si es número entero
+        // For ARS, no decimals if it's an integer
         if (Math.abs(num % 1) < 0.001) {
             return Math.round(num).toString();
         } else {
-            // Mostrar hasta 2 decimales, pero eliminar ceros finales
+            // Show up to 2 decimals, but remove trailing zeros
             return parseFloat(num.toFixed(2)).toString();
         }
     }

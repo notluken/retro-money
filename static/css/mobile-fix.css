@@ -1,0 +1,287 @@
+/* Mobile-specific fixes for Retro Money app */
+
+/* Make sure we use 100% of the screen */
+html, body {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+}
+
+/* More retro body styling */
+body {
+    background-color: var(--excel-background) !important;
+    font-family: 'MS Sans Serif', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+/* Enhanced CRT effect */
+body::after {
+    content: '' !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.05),
+        rgba(0, 0, 0, 0.05) 1px,
+        transparent 1px,
+        transparent 2px
+    ) !important;
+    pointer-events: none !important;
+    z-index: 9999 !important;
+    opacity: 0.7 !important;
+}
+
+/* Screen glow effect */
+body::before {
+    content: '' !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: radial-gradient(
+        ellipse at center,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(0, 0, 0, 0.3) 100%
+    ) !important;
+    pointer-events: none !important;
+    z-index: 9998 !important;
+    opacity: 0.7 !important;
+}
+
+/* Make container take full screen */
+body.mobile-device .excel-container {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+
+/* Fix for the Excel header navigation menu on all pages */
+body.mobile-device .excel-header {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    padding-bottom: 8px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 100 !important;
+    position: relative !important;
+    background-color: var(--excel-header) !important;
+    border-bottom: 3px solid var(--excel-border-dark) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+body.mobile-device .excel-title {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 10px 0 !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 20px !important;
+    visibility: visible !important;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+body.mobile-device .excel-menubar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 50 !important;
+    padding: 5px 0 !important;
+    background-color: var(--excel-bg) !important;
+    border-top: 1px solid var(--excel-border-light) !important;
+    border-bottom: 1px solid var(--excel-border-dark) !important;
+}
+
+/* Larger, more clickable menu buttons */
+body.mobile-device .excel-menubar .menu-item {
+    display: inline-block !important;
+    padding: 8px 12px !important;
+    margin: 3px 5px !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+    background-color: var(--excel-button-face) !important;
+    color: var(--excel-text) !important;
+    border: 2px solid var(--excel-border) !important;
+    border-radius: 0 !important;
+    box-shadow: 2px 2px 0 var(--excel-button-highlight) inset, -2px -2px 0 var(--excel-button-shadow) inset !important;
+    text-decoration: none !important;
+    min-width: 150px !important;
+    text-align: center !important;
+    cursor: pointer !important;
+}
+
+body.mobile-device .excel-menubar .menu-item.active {
+    background-color: var(--excel-blue) !important;
+    color: white !important;
+    box-shadow: 1px 1px 0 var(--excel-button-shadow) inset, -1px -1px 0 var(--excel-blue) inset !important;
+}
+
+body.mobile-device .excel-menubar .menu-item:active {
+    background-color: var(--excel-blue) !important;
+    color: white !important;
+    box-shadow: 1px 1px 0 var(--excel-button-shadow) inset, -1px -1px 0 var(--excel-blue) inset !important;
+}
+
+/* Make content area take full height */
+body.mobile-device .spreadsheet-area {
+    flex: 1 !important;
+    padding: 10px !important;
+    background-color: var(--excel-bg) !important;
+    border-top: 1px solid var(--excel-border-light) !important;
+    border-bottom: 1px solid var(--excel-border-dark) !important;
+    overflow-y: auto !important;
+    min-height: calc(100vh - 120px) !important;
+    width: 100% !important;
+    position: relative !important;
+    top: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* More retro status bar */
+body.mobile-device .excel-statusbar {
+    background-color: var(--excel-bg) !important;
+    border-top: 2px solid var(--excel-border-dark) !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 5px 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.mobile-device .status-cell {
+    background-color: #e0e0e0 !important;
+    border: 1px inset var(--excel-border-dark) !important;
+    font-size: 14px !important;
+    padding: 2px 8px !important;
+}
+
+body.mobile-device .status-help {
+    font-size: 14px !important;
+    font-style: italic !important;
+    padding: 2px 8px !important;
+}
+
+/* Fix for iOS scrolling issues */
+body.mobile-device .grid-with-row-headers {
+    -webkit-overflow-scrolling: touch !important;
+    overflow-y: scroll !important;
+    overscroll-behavior: auto !important;
+}
+
+/* Make sure containers have the right width */
+@media only screen and (max-width: 767px) {
+    body.mobile-device {
+        overflow-x: hidden !important;
+    }
+    
+    body.mobile-device .excel-container {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        overflow-x: hidden !important;
+    }
+    
+    body.mobile-device .grid-container {
+        width: 100% !important;
+        overflow-x: auto !important;
+    }
+    
+    /* Force menu to display in case there are CSS conflicts */
+    body.mobile-device .excel-header, 
+    body.mobile-device .excel-menubar {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Force body overflow fix */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+    }
+    
+    /* Ensure all sections have consistent styling */
+    body.mobile-device .todo-header,
+    body.mobile-device .todo-form,
+    body.mobile-device .todo-list,
+    body.mobile-device .todo-stats,
+    body.mobile-device .account-management-section,
+    body.mobile-device .transfer-management-section,
+    body.mobile-device .transfers-history-section,
+    body.mobile-device .section-title,
+    body.mobile-device .transfer-form,
+    body.mobile-device .investments-grid {
+        background-color: var(--excel-cell) !important;
+        border: 2px solid var(--excel-border) !important;
+        padding: 10px !important;
+        margin-bottom: 15px !important;
+        box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.2) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Section titles */
+    body.mobile-device .section-title,
+    body.mobile-device .form-title {
+        background-color: var(--excel-header) !important;
+        color: var(--excel-header-text) !important;
+        padding: 5px 10px !important;
+        margin-bottom: 10px !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    /* More retro button styles */
+    body.mobile-device button {
+        background-color: var(--excel-button-face) !important;
+        border: 2px outset var(--excel-border) !important;
+        border-radius: 0 !important;
+        color: var(--excel-text) !important;
+        font-family: 'MS Sans Serif', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        padding: 5px 10px !important;
+        min-width: 80px !important;
+        cursor: pointer !important;
+        box-shadow: 2px 2px 0 var(--excel-button-highlight) inset, -2px -2px 0 var(--excel-button-shadow) inset !important;
+    }
+    
+    body.mobile-device button:active {
+        border-style: inset !important;
+        box-shadow: 2px 2px 0 var(--excel-button-shadow) inset, -2px -2px 0 var(--excel-button-highlight) inset !important;
+    }
+    
+    /* More retro input styles */
+    body.mobile-device input, 
+    body.mobile-device select {
+        background-color: white !important;
+        border: 2px inset var(--excel-border) !important;
+        border-radius: 0 !important;
+        font-family: 'MS Sans Serif', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        font-size: 14px !important;
+        padding: 5px !important;
+    }
+} 

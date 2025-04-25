@@ -9,15 +9,17 @@
     <meta name="theme-color" content="#000080">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
-    <title>Excel 2.0 (1987) - Transferencias</title>
+    <title>Excel 2.0 (1987) - Money Transfers</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/excel-retro.css') }}">
     
-    <!-- Mobile device detection -->
+    <!-- Mobile device detection and conditional CSS loading -->
     <script type="text/javascript">
         var isMobileDevice = /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
         
         if (isMobileDevice) {
+            // This is a mobile device, load mobile specific CSS
             document.write('<link rel="stylesheet" href="{{ url_for("static", filename="css/mobile-fix.css") }}">');
+            // Mark the body as mobile
             document.addEventListener('DOMContentLoaded', function() {
                 document.body.classList.add('mobile-device');
             });
@@ -26,80 +28,83 @@
 </head>
 <body>
     <div class="excel-container">
-        <div class="excel-header">
-            <div class="excel-title">Microsoft Excel 2.0</div>
-            <div class="excel-menubar">
-                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}">Expense Tracker</a>
-                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}">Transferencias</a>
-                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}">Todo List</a>
-                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}">Investments</a>
+        <div class="excel-header" style="display: flex; flex-direction: column; height: auto; padding-bottom: 8px;">
+            <div class="excel-title" style="width: 100%; text-align: center; padding: 8px 0;">Microsoft Excel 2.0</div>
+            <div class="excel-menubar" style="display: flex; flex-wrap: wrap; width: 100%; justify-content: center;">
+                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Expense Tracker</a>
+                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Money Transfers</a>
+                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Todo List</a>
+                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Investments</a>
             </div>
         </div>
         
         <div class="spreadsheet-area">
             <div class="account-management-section">
-                <div class="section-title">Gestión de Cuentas</div>
+                <div class="section-title">Account Management</div>
                 <div class="account-cards" id="account-cards">
-                    <!-- Las tarjetas de cuentas se generarán dinámicamente con JavaScript -->
+                    <!-- Account cards will be generated dynamically with JavaScript -->
                 </div>
                 <div class="account-actions">
-                    <button id="update-accounts">Actualizar Saldos</button>
+                    <button id="update-accounts" class="retro-button primary">Update Balances</button>
                 </div>
             </div>
             
             <div class="transfer-management-section">
-                <div class="section-title">Registrar Nueva Transferencia</div>
+                <div class="section-title">Register New Transfer</div>
                 <div class="transfer-form">
                     <div class="form-row">
-                        <label for="transfer-date">Fecha:</label>
-                        <input type="date" id="transfer-date">
+                        <label for="transfer-date">Date:</label>
+                        <input type="date" id="transfer-date" class="retro-input">
                         
-                        <label for="transfer-description">Descripción:</label>
-                        <input type="text" id="transfer-description" placeholder="Pago de servicios...">
+                        <label for="transfer-description">Description:</label>
+                        <input type="text" id="transfer-description" placeholder="Bill payment..." class="retro-input">
                     </div>
                     <div class="form-row">
-                        <label for="transfer-from">Desde:</label>
-                        <select id="transfer-from">
-                            <!-- Las opciones se generarán dinámicamente -->
+                        <label for="transfer-from">From:</label>
+                        <select id="transfer-from" class="retro-select">
+                            <!-- Options will be generated dynamically -->
                         </select>
                         
-                        <label for="transfer-to">Hacia:</label>
-                        <select id="transfer-to">
-                            <!-- Las opciones se generarán dinámicamente -->
+                        <label for="transfer-to">To:</label>
+                        <select id="transfer-to" class="retro-select">
+                            <!-- Options will be generated dynamically -->
                         </select>
                     </div>
                     <div class="form-row">
-                        <label for="transfer-amount">Monto Bruto:</label>
-                        <input type="number" id="transfer-amount" min="0" step="0.01">
+                        <label for="transfer-amount">Gross Amount:</label>
+                        <input type="number" id="transfer-amount" min="0" step="0.01" class="retro-input">
                         
                         <div class="fee-details">
-                            <span>Comisión Payoneer (3%): <span id="fee-payoneer">0.00</span> USD</span>
-                            <span>Comisión Belo (1%): <span id="fee-belo">0.00</span> USD</span>
-                            <span>Total Comisiones: <span id="fee-amount">0.00</span> USD</span>
-                            <span>Monto Neto: <span id="net-amount">0.00</span> USD</span>
+                            <span>Payoneer Fee (3%): <span id="fee-payoneer">0.00</span> USD</span>
+                            <span>Belo Fee (1%): <span id="fee-belo">0.00</span> USD</span>
+                            <span>Total Fees: <span id="fee-amount">0.00</span> USD</span>
+                            <span>Net Amount: <span id="net-amount">0.00</span> USD</span>
+                            <div class="peso-equivalent">
+                                Equivalent in ARS: <span id="peso-amount">0.00</span> ARS (Crypto Dollar: <span id="crypto-rate">0.00</span>)
+                            </div>
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button id="register-transfer">Registrar Transferencia</button>
+                        <button id="register-transfer" class="retro-button primary">Register Transfer</button>
                     </div>
                 </div>
             </div>
             
             <div class="transfers-history-section">
-                <div class="section-title">Historial de Transferencias</div>
+                <div class="section-title">Transfer History</div>
                 <div class="transfers-grid">
                     <div class="transfers-grid-header">
-                        <div class="transfers-grid-cell">Fecha</div>
-                        <div class="transfers-grid-cell">Descripción</div>
-                        <div class="transfers-grid-cell">Desde</div>
-                        <div class="transfers-grid-cell">Hacia</div>
-                        <div class="transfers-grid-cell">Monto Bruto</div>
-                        <div class="transfers-grid-cell">Comisiones</div>
-                        <div class="transfers-grid-cell">Monto Neto</div>
-                        <div class="transfers-grid-cell">Acciones</div>
+                        <div class="transfers-grid-cell">Date</div>
+                        <div class="transfers-grid-cell">Description</div>
+                        <div class="transfers-grid-cell">From</div>
+                        <div class="transfers-grid-cell">To</div>
+                        <div class="transfers-grid-cell">Gross Amount</div>
+                        <div class="transfers-grid-cell">Fees</div>
+                        <div class="transfers-grid-cell">Net Amount</div>
+                        <div class="transfers-grid-cell">Actions</div>
                     </div>
                     <div class="transfers-grid-body" id="transfers-grid-body">
-                        <!-- Las transferencias se generarán dinámicamente -->
+                        <!-- Transfers will be generated dynamically -->
                     </div>
                 </div>
             </div>

@@ -1,5 +1,5 @@
 // Grid dimensions
-const GRID_ROWS = 15;
+const GRID_ROWS = 30;
 const GRID_COLS = 7;
 const COL_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -774,9 +774,11 @@ if (percentButton) {
 async function fetchExpenses(forceRefresh = false) {
     return new Promise((resolve, reject) => {
         try {
+            console.log("Fetching expenses with forceRefresh=", forceRefresh);
             // Use the storage API instead of direct fetch
             AppStorage.expenses.get(function(data) {
                 expenses = data;
+                console.log(`Loaded ${expenses.length} expenses`);
                 displayExpenses(); // This will call updateTotals()
                 resolve(data);
             }, forceRefresh); // Pass the forceRefresh parameter
@@ -1040,6 +1042,9 @@ async function fetchBudgetAllocations(forceRefresh = true) {
                 totalFromExpenses += amountUSD;
             });
             
+            console.log("Total expenses calculated:", totalFromExpenses);
+            console.log("Category map:", categoryMap);
+            
             // Use the storage API
             AppStorage.budget.getAllocations(function(data) {
                 if (data) {
@@ -1073,7 +1078,14 @@ async function fetchBudgetAllocations(forceRefresh = true) {
                     }
                     
                     displayBudgetAllocations(data);
-                    updateBudgetChart(data);
+                    
+                    // Ensure Chart.js is loaded before trying to update the chart
+                    if (typeof Chart !== 'undefined') {
+                        updateBudgetChart(data);
+                    } else {
+                        console.error("Chart.js not loaded yet. Will not update budget chart.");
+                    }
+                    
                     resolve(data);
                 } else {
                     resolve(null);
@@ -1351,7 +1363,7 @@ function updateTotals() {
     // Create a map to track category totals
     const categoryTotals = {};
     
-    console.log("Calculando totales para", expenses.length, "gastos");
+    console.log("Calculating totals for", expenses.length, "expenses");
     
     expenses.forEach((expense, index) => {
         // Determine exchange rate to use based on the currency
@@ -1388,7 +1400,7 @@ function updateTotals() {
             categoryTotals[category] = parseFloat((categoryTotals[category] + amount).toFixed(2));
             
             // Log for debugging
-            console.log(`Gasto ${index + 1}: ${amount} USD (${expense.currency}) -> Total USD: ${totalUSD}`);
+            console.log(`Expense ${index + 1}: ${amount} USD (${expense.currency}) -> Total USD: ${totalUSD}`);
         } else {
             // For ARS, convert to USD with proper precision handling
             const usdAmount = parseFloat((amount / rate).toFixed(2));
@@ -1399,21 +1411,31 @@ function updateTotals() {
             categoryTotals[category] = parseFloat((categoryTotals[category] + usdAmount).toFixed(2));
             
             // Log for debugging
-            console.log(`Gasto ${index + 1}: ${amount} ARS -> ${usdAmount} USD -> Total USD: ${totalUSD}`);
+            console.log(`Expense ${index + 1}: ${amount} ARS -> ${usdAmount} USD -> Total USD: ${totalUSD}`);
         }
     });
     
-    console.log("Total final USD:", totalUSD);
+    console.log("Final total USD:", totalUSD);
     console.log("Category totals (USD):", categoryTotals);
     
+    // Ensure salary is processed as a number
+    monthlySalary = parseFloat(monthlySalary) || 0;
+    
+    // Format the displayed values
     document.getElementById('total-usd').textContent = `$${formatNumber(totalUSD, true)}`;
     document.getElementById('total-ars').textContent = `ARS ${formatNumber(totalARS)}`;
     
+    // Calculate remaining budget
     const remainingUSD = parseFloat((monthlySalary - totalUSD).toFixed(2));
     // Use the selected rate for calculating remaining ARS
     const currentRate = selectedDolarType === 'blue' ? exchangeRate : exchangeRateTarjeta;
     const remainingARS = parseFloat((monthlySalary * currentRate - totalARS).toFixed(2));
     
+    console.log("Monthly salary:", monthlySalary);
+    console.log("Remaining USD:", remainingUSD);
+    console.log("Remaining ARS:", remainingARS);
+    
+    // Update displayed values
     document.getElementById('remaining-usd').textContent = `$${formatNumber(remainingUSD, true)}`;
     document.getElementById('remaining-ars').textContent = `ARS ${formatNumber(remainingARS)}`;
     
@@ -1695,120 +1717,44 @@ function setupBudgetListeners() {
 
 // Initialize app
 async function initApp() {
-    initGrid();
-    
-    // Ensure column headers are visible
-    setTimeout(fixColumnHeadersDisplay, 100);
-    
-    // Wait for Chart.js to load if needed
-    let chartAttemptsLeft = 10;
-    while (typeof Chart === 'undefined' && chartAttemptsLeft > 0) {
-        console.log(`Waiting for Chart.js to load... (${chartAttemptsLeft} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 200));
-        chartAttemptsLeft--;
+    try {
+        console.log('Initializing app...');
+        
+        // Initialize grid
+        initGrid();
+        
+        // Ensure Chart.js is loaded
+        console.log("Chart.js loaded:", typeof Chart !== 'undefined');
+        
+        // Fetch exchange rate
+        await fetchExchangeRate();
+        
+        // Fetch salary before expenses to ensure proper budget calculation
+        await fetchSalary();
+        console.log("Fetched salary:", monthlySalary);
+        
+        // Force refresh expenses on initial load
+        await fetchExpenses(true);
+        
+        // Explicitly fetch budget allocations after expenses are loaded
+        await fetchBudgetAllocations(true);
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Setup budget listeners
+        setupBudgetListeners();
+        
+        // Setup transfer functionality
+        setupTransferFunctionality();
+        
+        // Load account balances
+        loadAccountBalances();
+        
+        console.log('App initialized successfully');
+    } catch (error) {
+        console.error('Error initializing app:', error);
     }
-    
-    if (typeof Chart === 'undefined') {
-        console.error("Chart.js failed to load after multiple attempts");
-    } else {
-        console.log("Chart.js loaded successfully");
-    }
-    
-    await fetchExchangeRate();
-    await fetchSalary();
-    
-    // Important: load expenses first and update totals before loading budget
-    await fetchExpenses(); // This will also call updateTotals()
-    
-    // Then load budget allocations which will use the totals
-    await fetchBudgetAllocations();
-    
-    // Force another refresh after everything is loaded to ensure data consistency
-    setTimeout(async () => {
-        console.log("Performing final data consistency check...");
-        await fetchBudgetAllocations();
-    }, 500);
-    
-    // Removed event listeners for dolar type selection buttons
-    
-    // Initialize currency dropdown with current selected rate
-    const currencySelect = document.getElementById('expense-currency');
-    currencySelect.value = selectedDolarType === 'blue' ? 'USD-Blue' : 'USD-Tarjeta';
-    
-    // Setup refresh button for exchange rate
-    const refreshRateButton = document.getElementById('refresh-rate');
-    if (refreshRateButton) {
-        refreshRateButton.addEventListener('click', () => {
-            // Force refresh exchange rate data from API
-            AppStorage.exchangeRate.get(selectedDolarType || 'blue', function(data) {
-                if (data) {
-                    if (selectedDolarType === 'blue') {
-                        exchangeRate = data.usd_to_ars;
-                    } else {
-                        exchangeRateTarjeta = data.usd_to_ars;
-                    }
-                    updateExpenses();
-                    
-                    // Show notification
-                    showNotification('Exchange rate updated successfully', 'success');
-                }
-            }, true); // Force refresh from API
-            
-            // Make sure to update expenses and budget with fresh data from API
-            fetchExpenses(true).then(() => {
-                showNotification('Expenses updated successfully', 'success');
-                fetchBudgetAllocations(true).then(() => {
-                    showNotification('Budget allocations updated successfully', 'success');
-                });
-            });
-        });
-    }
-    
-    // Set up buttons with touch events
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(button => {
-        // Removed dolar-blue and dolar-tarjeta exceptions
-        button.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            button.click();
-        });
-    });
-    
-    // iPhone-specific setup for grid navigation
-    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        // Add touch event listener to the grid container to ensure scrollability
-        const gridWithRowHeaders = document.querySelector('.grid-with-row-headers');
-        if (gridWithRowHeaders) {
-            // Add touch-scrollable class
-            gridWithRowHeaders.classList.add('touch-scrollable');
-            
-            gridWithRowHeaders.addEventListener('touchmove', function(e) {
-                // Ensure the event continues to propagate for scrolling
-                e.stopPropagation();
-            }, { passive: true });
-            
-            // Make sure the grid is actually visible
-            setTimeout(() => {
-                const gridContainer = document.querySelector('.grid-container');
-                if (gridContainer) {
-                    gridContainer.style.display = 'flex';
-                    gridContainer.style.flex = '1 0 auto';
-                    gridContainer.style.minHeight = '300px';
-                }
-                
-                gridWithRowHeaders.style.overflow = 'auto';
-                gridWithRowHeaders.style.webkitOverflowScrolling = 'touch';
-            }, 300);
-        }
-    }
-    
-    setupBudgetListeners();
-    
-    // Inicializar funcionalidad de comisiones
-    setupTransferFunctionality();
-    
-    // Cargar saldos guardados
-    loadAccountBalances();
 }
 
 // Start the app when the document is loaded

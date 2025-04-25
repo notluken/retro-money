@@ -5,8 +5,11 @@ import requests
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from urllib.parse import urlencode
+import random
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Database setup
 def init_db():
@@ -2206,26 +2209,29 @@ def broker_auth():
             SET access_token = ?, refresh_token = ?, expires_in = ?, last_updated = ?
             WHERE id = 1''',
             (auth_response['access_token'],
-            auth_response['refresh_token'],
-            auth_response['expires_in'],
+            auth_response.get('refresh_token', ''),
+            auth_response.get('expires_in', 3600),
             datetime.now().isoformat()))
         else:
             c.execute('''INSERT INTO broker_tokens (id, access_token, refresh_token, expires_in, last_updated)
             VALUES (1, ?, ?, ?, ?)''',
             (auth_response['access_token'],
-            auth_response['refresh_token'],
-            auth_response['expires_in'],
+            auth_response.get('refresh_token', ''),
+            auth_response.get('expires_in', 3600),
             datetime.now().isoformat()))
         
         conn.commit()
         
+        # Return the token to the frontend
         return jsonify({
             'success': True,
+            'token': auth_response['access_token'],
             'message': 'Authenticated with InvertirOnline successfully'
         })
         
     except Exception as e:
         error_msg = f'Exception during authentication: {str(e)}'
+        print(f"Authentication error: {error_msg}")
         return jsonify({
             'success': False,
             'message': 'Authentication failed due to an error'
@@ -2304,6 +2310,22 @@ def broker_portfolio():
         conn = sqlite3.connect('expenses.db')
         c = conn.cursor()
         
+        # Get the token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            frontend_token = auth_header.split(' ')[1]
+            print(f"Token received from frontend: {frontend_token[:10]}...")
+            
+            # Check if this matches our stored token
+            c.execute("SELECT access_token FROM broker_tokens WHERE id = 1")
+            result = c.fetchone()
+            
+            # If we have a token in DB and it doesn't match the frontend token
+            if result and result[0] != frontend_token:
+                print("Warning: Frontend token doesn't match stored token")
+        else:
+            frontend_token = None
+        
         # Get the access token
         c.execute("SELECT access_token, last_updated, expires_in FROM broker_tokens WHERE id = 1")
         result = c.fetchone()
@@ -2343,9 +2365,11 @@ def broker_portfolio():
             print(f"New access token: {access_token[:10]}...")
         
         # Call InvertirOnline API for portfolio data
-        portfolio_url = 'https://api.invertironline.com/api/v2/portafolio'
+        portfolio_url = 'https://api.invertironline.com/api/v2/portafolio/argentina'
         headers = {
-            'Authorization': f'Bearer {access_token}'
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         }
         
         print(f"Requesting portfolio data from {portfolio_url}")
@@ -2354,19 +2378,98 @@ def broker_portfolio():
         print(f"Portfolio response status: {response.status_code}")
         if response.status_code != 200:
             print(f"Portfolio response error: {response.text}")
+            
+            # Return a meaningful error to the frontend
+            if response.status_code == 401:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Authentication failed or token expired. Please log in again.'
+                }), 401
+            else:
+                # Return the API response data to help with debugging
+                try:
+                    error_data = response.json()
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'API error: {response.status_code}',
+                        'api_response': error_data
+                    }), response.status_code
+                except:
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'API error: {response.status_code} - {response.text}'
+                    }), response.status_code
         
-        if response.status_code == 200:
-            portfolio_data = response.json()
-            print("Portfolio data received successfully")
+        # Successfully got portfolio data
+        portfolio_data = response.json()
+        print("Portfolio data received successfully")
+        
+        # If the response is already in the expected format, just return it
+        if 'activos' in portfolio_data and isinstance(portfolio_data['activos'], list):
+            print("Response already has 'activos' field, returning as is")
             
-            # Convertir los datos al formato argentino
-            argentina_format = {
-                'pais': 'argentina',
-                'activos': []
-            }
-            
-            # Procesar cada cuenta y sus activos
-            for account in portfolio_data.get('cuentas', []):
+            # Add any user investments to the portfolio
+            try:
+                c.execute("""
+                    SELECT id, name, purchase_date, purchase_price, quantity, current_price, investment_type
+                    FROM investments
+                    ORDER BY purchase_date DESC
+                """)
+                user_investments = c.fetchall()
+                
+                for inv in user_investments:
+                    _, name, purchase_date, purchase_price, quantity, current_price, inv_type = inv
+                    
+                    # Usar precio actual o precio de compra si no hay precio actual
+                    actual_price = current_price if current_price > 0 else purchase_price
+                    
+                    # Calcular valores
+                    current_value = quantity * actual_price
+                    total_invested = quantity * purchase_price
+                    profit_loss = current_value - total_invested
+                    profit_percent = (profit_loss / total_invested * 100) if total_invested > 0 else 0
+                    
+                    # Crear activo
+                    user_activo = {
+                        'cantidad': quantity,
+                        'comprometido': 0,
+                        'puntosVariacion': 0,
+                        'variacionDiaria': 0,
+                        'ultimoPrecio': actual_price,
+                        'ppc': purchase_price,
+                        'gananciaPorcentaje': round(profit_percent, 2),
+                        'gananciaDinero': round(profit_loss, 2),
+                        'valorizado': round(current_value, 2),
+                        'titulo': {
+                            'simbolo': name,
+                            'descripcion': f"Mi inversión: {name}",
+                            'pais': 'local',
+                            'mercado': 'personal',
+                            'tipo': inv_type or 'Personalizada',
+                            'plazo': 'n/a',
+                            'moneda': 'USD'
+                        },
+                        'parking': None,
+                        'isUserInvestment': True  # Marcar como inversión personal
+                    }
+                    
+                    portfolio_data['activos'].append(user_activo)
+            except Exception as e:
+                print(f"Error adding user investments: {str(e)}")
+                
+            conn.close()
+            return jsonify(portfolio_data)
+        
+        # Convert portfolio data to expected format
+        print("Converting portfolio data to expected format")
+        argentina_format = {
+            'pais': 'argentina',
+            'activos': []
+        }
+        
+        # Process accounts and assets
+        if 'cuentas' in portfolio_data and isinstance(portfolio_data['cuentas'], list):
+            for account in portfolio_data['cuentas']:
                 for asset in account.get('activos', []):
                     ticker = asset.get('simbolo', '')
                     description = asset.get('descripcion', '')
@@ -2375,13 +2478,13 @@ def broker_portfolio():
                     current_price = asset.get('ultimoPrecio', 0)
                     daily_variation = asset.get('variacionDiaria', 0)
                     
-                    # Calcular campos derivados
+                    # Calculate derived fields
                     current_value = quantity * current_price
                     total_invested = quantity * purchase_price
                     profit_loss = current_value - total_invested
                     profit_percent = (profit_loss / total_invested * 100) if total_invested > 0 else 0
                     
-                    # Determinar tipo de activo
+                    # Determine asset type
                     asset_type = 'Letras'
                     if 'CEDEAR' in description.upper() or ticker in ['SPY', 'AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN']:
                         asset_type = 'CEDEARS'
@@ -2390,7 +2493,7 @@ def broker_portfolio():
                     elif 'ACCIONES' in description.upper():
                         asset_type = 'Acciones'
                     
-                    # Formato de activo según el JSON argentino
+                    # Asset formatting according to argentino JSON
                     activo = {
                         'cantidad': quantity,
                         'comprometido': 0,
@@ -2414,110 +2517,61 @@ def broker_portfolio():
                     }
                     
                     argentina_format['activos'].append(activo)
-            
-            # Si no hay activos, usar datos de prueba para mostrar la funcionalidad
-            if not argentina_format['activos']:
-                # Datos de ejemplo en formato argentino
-                argentina_format = {
-                    'pais': 'argentina',
-                    'activos': [
-                        {
-                            'cantidad': 30185,
-                            'comprometido': 0,
-                            'puntosVariacion': 0.25,
-                            'variacionDiaria': 0.17,
-                            'ultimoPrecio': 141.15,
-                            'ppc': 141.078,
-                            'gananciaPorcentaje': 0.05,
-                            'gananciaDinero': 21.73,
-                            'valorizado': 42606.13,
-                            'titulo': {
-                                'simbolo': 'S12S5',
-                                'descripcion': 'Letras Del Tesoro Cap $ V 12/09/25',
-                                'pais': 'argentina',
-                                'mercado': 'bcba',
-                                'tipo': 'Letras',
-                                'plazo': 't1',
-                                'moneda': 'peso_Argentino'
-                            },
-                            'parking': None
-                        },
-                        {
-                            'cantidad': 30420,
-                            'comprometido': 0,
-                            'puntosVariacion': 1.02,
-                            'variacionDiaria': 0.73,
-                            'ultimoPrecio': 140.52,
-                            'ppc': 139.99,
-                            'gananciaPorcentaje': 0.37,
-                            'gananciaDinero': 161.23,
-                            'valorizado': 42746.18,
-                            'titulo': {
-                                'simbolo': 'S30S5',
-                                'descripcion': 'Letras Del Tesoro Cap $ V 30/09/25',
-                                'pais': 'argentina',
-                                'mercado': 'bcba',
-                                'tipo': 'Letras',
-                                'plazo': 't1',
-                                'moneda': 'peso_Argentino'
-                            },
-                            'parking': None
-                        },
-                        {
-                            'cantidad': 17811,
-                            'comprometido': 0,
-                            'puntosVariacion': 0.4,
-                            'variacionDiaria': 0.35,
-                            'ultimoPrecio': 112.695,
-                            'ppc': 112.29,
-                            'gananciaPorcentaje': 0.36,
-                            'gananciaDinero': 72.13,
-                            'valorizado': 20072.11,
-                            'titulo': {
-                                'simbolo': 'S31O5',
-                                'descripcion': 'Letras Del Tesoro Cap $ V 31/10/25',
-                                'pais': 'argentina',
-                                'mercado': 'bcba',
-                                'tipo': 'Letras',
-                                'plazo': 't1',
-                                'moneda': 'peso_Argentino'
-                            },
-                            'parking': None
-                        },
-                        {
-                            'cantidad': 2,
-                            'comprometido': 0,
-                            'puntosVariacion': 1200,
-                            'variacionDiaria': 3.78,
-                            'ultimoPrecio': 32900,
-                            'ppc': 31775,
-                            'gananciaPorcentaje': 3.54,
-                            'gananciaDinero': 2250,
-                            'valorizado': 65800,
-                            'titulo': {
-                                'simbolo': 'SPY',
-                                'descripcion': 'Etf Spdr S&P 500',
-                                'pais': 'argentina',
-                                'mercado': 'bcba',
-                                'tipo': 'CEDEARS',
-                                'plazo': 't1',
-                                'moneda': 'peso_Argentino'
-                            },
-                            'parking': None
-                        }
-                    ]
-                }
-            
-            conn.close()
-            return jsonify(argentina_format)
         else:
-            conn.close()
-            error_msg = f'Failed to fetch portfolio: {response.status_code} - {response.text}'
-            print(error_msg)
-            return jsonify({
-                'status': 'error',
-                'message': error_msg
-            }), response.status_code
+            print(f"Unexpected portfolio data format: {portfolio_data}")
+        
+        # Add user investments to the portfolio
+        try:
+            c.execute("""
+                SELECT id, name, purchase_date, purchase_price, quantity, current_price, investment_type
+                FROM investments
+                ORDER BY purchase_date DESC
+            """)
+            user_investments = c.fetchall()
+            
+            for inv in user_investments:
+                _, name, purchase_date, purchase_price, quantity, current_price, inv_type = inv
+                
+                # Usar precio actual o precio de compra si no hay precio actual
+                actual_price = current_price if current_price > 0 else purchase_price
+                
+                # Calcular valores
+                current_value = quantity * actual_price
+                total_invested = quantity * purchase_price
+                profit_loss = current_value - total_invested
+                profit_percent = (profit_loss / total_invested * 100) if total_invested > 0 else 0
+                
+                # Crear activo
+                user_activo = {
+                    'cantidad': quantity,
+                    'comprometido': 0,
+                    'puntosVariacion': 0,
+                    'variacionDiaria': 0,
+                    'ultimoPrecio': actual_price,
+                    'ppc': purchase_price,
+                    'gananciaPorcentaje': round(profit_percent, 2),
+                    'gananciaDinero': round(profit_loss, 2),
+                    'valorizado': round(current_value, 2),
+                    'titulo': {
+                        'simbolo': name,
+                        'descripcion': f"Mi inversión: {name}",
+                        'pais': 'local',
+                        'mercado': 'personal',
+                        'tipo': inv_type or 'Personalizada',
+                        'plazo': 'n/a',
+                        'moneda': 'USD'
+                    },
+                    'parking': None,
+                    'isUserInvestment': True  # Marcar como inversión personal
+                }
+                
+                argentina_format['activos'].append(user_activo)
+        except Exception as e:
+            print(f"Error adding user investments: {str(e)}")
+        
+        conn.close()
+        print(f"Returning portfolio data with {len(argentina_format['activos'])} assets")
+        return jsonify(argentina_format)
             
     except Exception as e:
         error_msg = f'Exception during portfolio fetch: {str(e)}'
@@ -2525,6 +2579,75 @@ def broker_portfolio():
         return jsonify({
             'status': 'error',
             'message': error_msg
+        }), 500
+
+@app.route('/api/broker/prices', methods=['GET'])
+def broker_prices():
+    """
+    Endpoint para obtener precios actualizados en tiempo real.
+    Simula una API de precios con datos actualizados para todos los activos del portafolio.
+    """
+    try:
+        # Recuperamos los datos del portafolio primero
+        portfolio_response = broker_portfolio()
+        
+        # Si es una respuesta de error, retornarla
+        if isinstance(portfolio_response, tuple):
+            return portfolio_response
+        
+        # Extraer los datos del portfolio
+        if hasattr(portfolio_response, 'json'):
+            portfolio_data = portfolio_response.json
+        else:
+            portfolio_data = json.loads(portfolio_response.data)
+        
+        # Lista para almacenar los precios actualizados
+        updated_prices = []
+        
+        # Actualizar precios para cada activo
+        for activo in portfolio_data.get('activos', []):
+            symbol = activo['titulo']['simbolo']
+            last_price = activo['ultimoPrecio']
+            
+            # Pequeña variación aleatoria (±0.5% max) para simular cambios de mercado
+            volatility = 0.005
+            # Distribución más cercana a normal
+            random_factor = ((random.random() + random.random() + random.random() + random.random() - 2) / 2)
+            percent_change = volatility * random_factor
+            # Un pequeño sesgo alcista
+            drift = 0.0003
+            
+            # Nuevo precio con variación aleatoria
+            new_price = max(0.01, last_price * (1 + percent_change + drift))
+            
+            # Calcular la variación diaria actualizada
+            if activo.get('variacionDiaria') is not None:
+                base_variation = activo['variacionDiaria']
+                # Ajustar la variación diaria por el cambio de precio
+                new_variation = base_variation + (percent_change * 100)
+            else:
+                new_variation = percent_change * 100
+            
+            # Agregar precio actualizado
+            updated_prices.append({
+                'symbol': symbol,
+                'last_price': round(new_price, 4),
+                'previous_price': last_price,
+                'variation': round(new_variation, 2),
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        # Devolver los precios actualizados
+        return jsonify({
+            'status': 'success',
+            'prices': updated_prices
+        })
+    
+    except Exception as e:
+        app.logger.error(f"Error en broker_prices: {str(e)}")
+        return jsonify({
+            'status': 'error', 
+            'message': f'Error al obtener precios: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

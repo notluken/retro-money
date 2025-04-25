@@ -25,16 +25,134 @@
             });
         }
     </script>
+    
+    <style>
+        /* Mejoras en la estética de Excel 1987 */
+        .excel-title {
+            text-shadow: 0.5px 0.5px 0 rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.5px;
+        }
+        
+        /* Make excel-container take full height of viewport */
+        .excel-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        /* Make the content area grow to push footer down */
+        .spreadsheet-area {
+            flex: 1;
+        }
+        
+        .menu-item {
+            transition: background-color 0.05s ease;
+        }
+        
+        .menu-item:active {
+            background-color: #000080;
+            color: white;
+        }
+        
+        /* Form elements and buttons */
+        input, select, button {
+            font-family: 'Courier New', monospace;
+        }
+        
+        button {
+            background-color: #c0c0c0;
+            border: 2px outset #dedede;
+            padding: 4px 8px;
+            cursor: pointer;
+            box-shadow: 1px 1px 0 #fff inset, -1px -1px 0 #707070 inset;
+        }
+        
+        button:active {
+            border-style: inset;
+            box-shadow: 1px 1px 0 #707070 inset, -1px -1px 0 #fff inset;
+        }
+        
+        input, select {
+            border: 1px inset #808080;
+            background-color: white;
+            padding: 4px;
+        }
+        
+        /* Simular píxeles de CRT */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.03),
+                rgba(0, 0, 0, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.5;
+        }
+        
+        /* Mejoras específicas para la página de todos */
+        .todo-header {
+            background-color: var(--excel-cell);
+            border: 1px solid var(--excel-border);
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .todo-header h2 {
+            font-family: 'Courier New', monospace;
+            color: var(--excel-header);
+            margin-bottom: 10px;
+        }
+        
+        .todo-form {
+            background-color: var(--excel-cell);
+            border: 1px solid var(--excel-border);
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .todo-list {
+            background-color: var(--excel-cell);
+            border: 1px solid var(--excel-border);
+            padding: 10px;
+            margin-bottom: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .todo-stats {
+            background-color: var(--excel-cell);
+            border: 1px solid var(--excel-border);
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .form-title {
+            background-color: var(--excel-header);
+            color: var(--excel-header-text);
+            padding: 2px 5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <div class="excel-container">
-        <div class="excel-header">
-            <div class="excel-title">Microsoft Excel 2.0</div>
-            <div class="excel-menubar">
-                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}">Expense Tracker</a>
-                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}">Transferencias</a>
-                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}">Todo List</a>
-                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}">Investments</a>
+        <div class="excel-header" style="display: flex; flex-direction: column; height: auto; padding-bottom: 8px;">
+            <div class="excel-title" style="width: 100%; text-align: center; padding: 8px 0;">Microsoft Excel 2.0</div>
+            <div class="excel-menubar" style="display: flex; flex-wrap: wrap; width: 100%; justify-content: center;">
+                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Expense Tracker</a>
+                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Transferencias</a>
+                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Todo List</a>
+                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Investments</a>
             </div>
         </div>
         
@@ -52,7 +170,7 @@
         
         <div class="spreadsheet-area">
             <div class="todo-header">
-                <h2>My Todo List</h2>
+                <div class="section-title">Todo List</div>
                 <div class="date-selector">
                     <label for="date-filter">View tasks for:</label>
                     <input type="date" id="date-filter" class="date-input">
@@ -695,70 +813,5 @@
             document.body.appendChild(script);
         }
     </script>
-    
-    <!-- Add custom CSS for hierarchical todos -->
-    <style>
-        .todo-item {
-            position: relative;
-            transition: margin-left 0.3s;
-        }
-        
-        .subtasks-container {
-            margin-left: 20px;
-        }
-        
-        .todo-add-subtask {
-            cursor: pointer;
-            font-weight: bold;
-            margin: 0 10px;
-            color: #000080;
-            font-size: 1.2em;
-        }
-        
-        /* Modal styling */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            z-index: 100;
-        }
-        
-        .modal-content {
-            background-color: #c0c0c0;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #000;
-            width: 50%;
-            max-width: 500px;
-            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
-        }
-        
-        .modal-title {
-            font-weight: bold;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-        
-        .modal-actions {
-            margin-top: 15px;
-            text-align: right;
-        }
-        
-        .modal-actions button {
-            margin-left: 10px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        
-        #subtask-desc {
-            width: 100%;
-            padding: 5px;
-            margin-bottom: 10px;
-        }
-    </style>
 </body>
 </html> 

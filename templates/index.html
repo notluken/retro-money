@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="Retro Money">
@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
     <title>Excel 2.0 (1987) Expense Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/excel-retro.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     
     <!-- Mobile device detection and conditional CSS loading -->
     <script type="text/javascript">
@@ -76,6 +77,28 @@
                 z-index: 2 !important;
                 background-color: #c0c0c0 !important;
             }
+        }
+        
+        /* Estilos para tablas tipo Excel */
+        .excel-grid {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        .excel-grid th {
+            background-color: var(--excel-header-bg);
+            font-weight: bold;
+            border: 1px solid var(--excel-border);
+            padding: 4px 8px;
+        }
+        
+        .excel-grid td {
+            border: 1px solid var(--excel-border);
+            padding: 4px 8px;
+        }
+        
+        .excel-grid tr:nth-child(even) {
+            background-color: #f0f0f0;
         }
         
         /* Styles for expand/collapse grid functionality */
@@ -167,306 +190,18 @@
         /* Investments modal styles */
         .investments-login-content {
             width: 400px;
-            max-width: 90%;
-            padding: 20px;
         }
         
-        .login-container {
-            background-color: #f0f0f0;
-            border: 1px solid #808080;
-            padding: 15px;
-            margin-bottom: 15px;
+        /* iOS safe area handling */
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sar: env(safe-area-inset-right);
+            --sab: env(safe-area-inset-bottom);
+            --sal: env(safe-area-inset-left);
         }
         
-        .input-group {
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-        }
-        
-        .input-group label {
-            width: 100px;
-            display: inline-block;
-        }
-        
-        .input-group input {
-            flex: 1;
-            padding: 5px;
-            border: 1px solid #808080;
-        }
-        
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            margin-top: 10px;
-        }
-        
-        .checkbox-group input[type="checkbox"] {
-            margin-right: 8px;
-        }
-        
-        /* Investments Dashboard Styles */
-        .investments-dashboard {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #f0f0f0;
-            z-index: 1000;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .investments-dashboard .excel-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-        }
-        
-        .dashboard-content {
-            flex: 1;
-            overflow: auto;
-            padding-bottom: 15px;
-            height: calc(100% - 90px); /* Restar altura del header y statusbar */
-        }
-        
-        .investments-overview {
-            display: flex;
-            gap: 20px;
-            margin: 15px;
-            height: 350px;
-            min-height: 350px;
-            max-height: 350px;
-        }
-        
-        .portfolio-summary, .chart-container {
-            flex: 1;
-            background-color: #fff;
-            border: 1px solid #808080;
-            padding: 15px;
-            box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        
-        .summary-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 15px;
-            overflow-y: auto;
-            height: calc(100% - 50px);
-        }
-        
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px dotted #ccc;
-        }
-        
-        .stat-value {
-            font-weight: bold;
-        }
-        
-        .portfolio-grid {
-            margin: 15px;
-            background-color: #fff;
-            border: 1px solid #808080;
-            padding: 15px;
-            box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.1);
-            height: 300px;
-            min-height: 300px;
-            max-height: 300px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .portfolio-grid h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-        }
-        
-        .portfolio-table {
-            flex: 1;
-            overflow: auto;
-        }
-        
-        .portfolio-table table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-        
-        .portfolio-table th, .portfolio-table td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .portfolio-table th {
-            background-color: #e0e0e0;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-        
-        .portfolio-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        
-        .realtime-chart {
-            margin: 15px;
-            background-color: #fff;
-            border: 1px solid #808080;
-            padding: 15px;
-            box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.1);
-            height: 600px;
-            min-height: 600px;
-            max-height: 600px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .realtime-chart h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 16px;
-            color: #000;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 5px;
-        }
-        
-        .realtime-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        
-        #symbol-selector {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #808080;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            background-color: #fff;
-            appearance: menulist;
-        }
-        
-        #start-realtime {
-            background-color: #c0c0c0;
-            border: 2px outset #dedede;
-            padding: 8px 15px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-        }
-        
-        #start-realtime:active {
-            border-style: inset;
-        }
-        
-        #portfolio-chart, #realtime-chart {
-            flex: 1;
-            width: 100%;
-        }
-        
-        .realtime-chart-container {
-            flex: 1;
-            position: relative;
-            height: 540px;
-        }
-        
-        /* Colorear ganancias y pérdidas */
-        .positive {
-            color: green;
-        }
-        
-        .negative {
-            color: red;
-        }
-        
-        @media (max-width: 768px) {
-            .investments-overview {
-                flex-direction: column;
-            }
-        }
-        
-        /* Modal base styles (compartidos entre todos los modales) */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .modal-content {
-            background-color: #c0c0c0;
-            border: 2px solid #000080;
-            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3);
-            position: relative;
-        }
-        
-        .modal-title {
-            background-color: #000080;
-            color: white;
-            padding: 4px 8px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .modal-actions button {
-            background-color: #c0c0c0;
-            border: 2px outset #dedede;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        
-        .modal-actions button:active {
-            border-style: inset;
-        }
-        
-        .chart-container {
-            flex: 1;
-            background-color: #fff;
-            border: 1px solid #808080;
-            padding: 15px;
-            box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .chart-container h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-        
-        #portfolio-chart {
-            flex: 1;
-            position: relative;
-            height: calc(100% - 30px);
+        body {
+            padding: var(--sat) var(--sar) var(--sab) var(--sal);
         }
     </style>
     
@@ -571,13 +306,13 @@
 </head>
 <body>
     <div class="excel-container">
-        <div class="excel-header">
-            <div class="excel-title">Microsoft Excel 2.0</div>
-            <div class="excel-menubar">
-                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}">Expense Tracker</a>
-                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}">Transferencias</a>
-                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}">Todo List</a>
-                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}">Investments</a>
+        <div class="excel-header" style="display: flex; flex-direction: column; height: auto; padding-bottom: 8px;">
+            <div class="excel-title" style="width: 100%; text-align: center; padding: 8px 0;">Microsoft Excel 2.0</div>
+            <div class="excel-menubar" style="display: flex; flex-wrap: wrap; width: 100%; justify-content: center;">
+                <a href="{{ url_for('index') }}" class="menu-item {% if active_page == 'expenses' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Expense Tracker</a>
+                <a href="{{ url_for('transfers') }}" class="menu-item {% if active_page == 'transfers' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Transferencias</a>
+                <a href="{{ url_for('todos') }}" class="menu-item {% if active_page == 'todos' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Todo List</a>
+                <a href="{{ url_for('investments') }}" class="menu-item {% if active_page == 'investments' %}active{% endif %}" style="display: inline-block; padding: 8px 12px; margin: 3px 5px; font-size: 16px; font-weight: bold; background-color: #c0c0c0; color: #000; border: 2px solid #808080; border-radius: 4px; box-shadow: 2px 2px 0 #fff inset, -2px -2px 0 #707070 inset; text-decoration: none; min-width: 120px; text-align: center;">Investments</a>
             </div>
         </div>
         
@@ -616,7 +351,7 @@
                     </div>
                 </div>
                 <div class="budget-chart-container">
-                    <canvas id="budget-chart"></canvas>
+                    <canvas id="budget-chart" style="height: 300px; width: 100%;"></canvas>
                 </div>
             </div>
             
@@ -700,6 +435,21 @@
                         <div class="row-header">13</div>
                         <div class="row-header">14</div>
                         <div class="row-header">15</div>
+                        <div class="row-header">16</div>
+                        <div class="row-header">17</div>
+                        <div class="row-header">18</div>
+                        <div class="row-header">19</div>
+                        <div class="row-header">20</div>
+                        <div class="row-header">21</div>
+                        <div class="row-header">22</div>
+                        <div class="row-header">23</div>
+                        <div class="row-header">24</div>
+                        <div class="row-header">25</div>
+                        <div class="row-header">26</div>
+                        <div class="row-header">27</div>
+                        <div class="row-header">28</div>
+                        <div class="row-header">29</div>
+                        <div class="row-header">30</div>
                     </div>
                     
                     <div class="grid" id="expense-grid">
@@ -780,12 +530,74 @@
     
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
     <script>
-        // Verificar que Chart.js esté disponible
-        window.chartJsLoaded = typeof Chart !== 'undefined';
-        console.log('Chart.js loaded:', window.chartJsLoaded);
+        // Check that Chart.js is available and log status
+        document.addEventListener('DOMContentLoaded', function() {
+            window.chartJsLoaded = typeof Chart !== 'undefined';
+            console.log('Chart.js loaded on page load:', window.chartJsLoaded);
+            
+            // If Chart.js isn't loaded, try loading it again
+            if (!window.chartJsLoaded) {
+                console.log('Attempting to reload Chart.js...');
+                const script = document.createElement('script');
+                script.src = "{{ url_for('static', filename='js/chart.min.js') }}";
+                script.onload = function() {
+                    window.chartJsLoaded = true;
+                    console.log('Chart.js reloaded successfully');
+                    // Force refresh budget data when Chart.js loads
+                    if (typeof AppStorage !== 'undefined' && AppStorage.budget) {
+                        AppStorage.budget.getAllocations(function(data) {
+                            console.log('Refreshing budget data after Chart.js load');
+                        }, true);
+                    }
+                };
+                script.onerror = function() {
+                    console.error('Failed to reload Chart.js');
+                };
+                document.body.appendChild(script);
+            }
+        });
     </script>
     <script src="{{ url_for('static', filename='js/app-storage.js') }}"></script>
     <script src="{{ url_for('static', filename='js/grid.js') }}"></script>
+    
+    <script>
+        // Force retro styling and full width/height
+        document.addEventListener('DOMContentLoaded', function() {
+            // Force the page to use 100% width and height
+            document.documentElement.style.width = '100%';
+            document.documentElement.style.height = '100%';
+            document.documentElement.style.margin = '0';
+            document.documentElement.style.padding = '0';
+            document.documentElement.style.overflow = 'hidden';
+            
+            document.body.style.width = '100%';
+            document.body.style.height = '100%';
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+            document.body.style.overflow = 'auto';
+            document.body.style.minWidth = '100%';
+            
+            // Force container to take full screen
+            const excelContainer = document.querySelector('.excel-container');
+            if (excelContainer) {
+                excelContainer.style.width = '100%';
+                excelContainer.style.height = '100%';
+                excelContainer.style.minHeight = '100vh';
+                excelContainer.style.margin = '0';
+                excelContainer.style.borderRadius = '0';
+                excelContainer.style.display = 'flex';
+                excelContainer.style.flexDirection = 'column';
+            }
+            
+            // Make sure spreadsheet area takes the remaining space
+            const spreadsheetArea = document.querySelector('.spreadsheet-area');
+            if (spreadsheetArea) {
+                spreadsheetArea.style.flex = '1';
+                spreadsheetArea.style.width = '100%';
+                spreadsheetArea.style.boxSizing = 'border-box';
+            }
+        });
+    </script>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {

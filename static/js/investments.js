@@ -1,430 +1,340 @@
 // Investment tracker functionality
 
 // Global variables
-let investments = [];
-let investmentChart = null;
+let accessToken = null;
+let portfolioData = null;
+let portfolioChart = null;
 
-// Initialize investments functionality
+// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    initInvestments();
+    // Setup event listeners
+    document.getElementById('connect-broker-btn').addEventListener('click', showLoginModal);
+    document.getElementById('close-login-btn').addEventListener('click', closeLoginModal);
+    document.getElementById('cancel-login-btn').addEventListener('click', closeLoginModal);
+    document.getElementById('login-btn').addEventListener('click', handleLogin);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.getElementById('refresh-investments-btn').addEventListener('click', fetchPortfolioData);
+    
+    // Check if user is already logged in
+    if (localStorage.getItem('investment_token')) {
+        accessToken = localStorage.getItem('investment_token');
+        showDashboard();
+        fetchPortfolioData();
+    } else {
+        // Show login modal automatically on page load
+        showLoginModal();
+    }
 });
 
-// Initialize investments
-function initInvestments() {
-    // Fetch investments data
-    fetchInvestments();
+// Show login modal
+function showLoginModal() {
+    document.getElementById('login-modal').style.display = 'flex';
     
-    // Set up event listeners
-    document.getElementById('add-investment').addEventListener('click', openAddInvestmentModal);
-    document.getElementById('refresh-investments').addEventListener('click', () => fetchInvestments(true));
-    document.getElementById('investment-form').addEventListener('submit', saveInvestment);
-    document.getElementById('cancel-investment').addEventListener('click', closeInvestmentModal);
-    
-    // Close modal when clicking the X
-    const closeButtons = document.querySelectorAll('.close-button');
-    closeButtons.forEach(button => {
-        button.addEventListener('click', closeInvestmentModal);
-    });
-    
-    // Close modal when clicking outside
-    window.addEventListener('click', function(event) {
-        const modal = document.getElementById('investment-modal');
-        if (event.target === modal) {
-            closeInvestmentModal();
-        }
-    });
+    // Focus on username field
+    setTimeout(function() {
+        document.getElementById('username').focus();
+    }, 100);
 }
 
-// Fetch investments from API
-function fetchInvestments(forceRefresh = false) {
-    AppStorage.investments.get(function(data) {
-        if (data) {
-            investments = data.investments || [];
-            displayInvestments(data);
-            updateInvestmentSummary(data);
-            updateInvestmentChart(data);
-        }
-    }, forceRefresh);
+// Close login modal
+function closeLoginModal() {
+    document.getElementById('login-modal').style.display = 'none';
 }
 
-// Display investments in the grid
-function displayInvestments(data) {
-    const gridBody = document.getElementById('investments-grid-body');
+// Handle login
+function handleLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
     
-    // Clear existing content
-    gridBody.innerHTML = '';
-    
-    if (!data.investments || data.investments.length === 0) {
-        const emptyRow = document.createElement('div');
-        emptyRow.className = 'investments-grid-row';
-        emptyRow.innerHTML = '<div class="investments-grid-cell" style="text-align:center; grid-column: 1 / -1;">No investments found. Click "Add Investment" to get started.</div>';
-        gridBody.appendChild(emptyRow);
+    if (!username || !password) {
+        alert('Please enter your username and password');
         return;
     }
     
-    // Add each investment row
-    data.investments.forEach(inv => {
-        const row = document.createElement('div');
-        row.className = 'investments-grid-row';
+    // Show loading state
+    const loginBtn = document.getElementById('login-btn');
+    const originalBtnText = loginBtn.textContent;
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Connecting...';
+    
+    // Use our backend as a proxy to avoid CORS issues
+    fetch('/api/broker/auth', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Authentication failed (${response.status})`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.token) {
+            // Store the token
+            accessToken = data.token;
+            localStorage.setItem('investment_token', accessToken);
+            
+            // Hide login modal
+            closeLoginModal();
+            
+            // Show dashboard
+            showDashboard();
+            
+            // Fetch data
+            fetchPortfolioData();
+        } else {
+            throw new Error('Authentication failed - no token received');
+        }
+    })
+    .catch(error => {
+        alert('Login failed: ' + error.message);
+    })
+    .finally(() => {
+        // Reset button
+        loginBtn.disabled = false;
+        loginBtn.textContent = originalBtnText;
+    });
+}
+
+// Handle logout
+function handleLogout() {
+    // Clear token
+    accessToken = null;
+    localStorage.removeItem('investment_token');
+    
+    // Show main screen
+    document.getElementById('investments-main').style.display = 'block';
+    document.getElementById('investments-dashboard').style.display = 'none';
+    
+    // Clear data
+    portfolioData = null;
+    
+    // If chart exists, destroy it
+    if (portfolioChart) {
+        portfolioChart.destroy();
+        portfolioChart = null;
+    }
+}
+
+// Show dashboard
+function showDashboard() {
+    document.getElementById('investments-main').style.display = 'none';
+    document.getElementById('investments-dashboard').style.display = 'block';
+}
+
+// Fetch portfolio data
+function fetchPortfolioData() {
+    if (!accessToken) {
+        showLoginModal();
+        return;
+    }
+    
+    // Show loading state
+    document.getElementById('portfolio-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading portfolio data...</td></tr>';
+    
+    // Use our backend as a proxy to avoid CORS issues
+    fetch('/api/broker/portfolio', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('Authentication failed or token expired');
+            } else {
+                throw new Error(`API error: ${response.status}`);
+            }
+        }
+        return response.json();
+    })
+    .then(data => {
+        portfolioData = data;
+        renderPortfolioData(data);
+    })
+    .catch(error => {
+        console.error('Error fetching portfolio data:', error);
+        document.getElementById('portfolio-tbody').innerHTML = 
+            `<tr><td colspan="8" style="text-align:center;">Error loading data: ${error.message}. Please try again.</td></tr>`;
         
-        // Name
-        const nameCell = document.createElement('div');
-        nameCell.className = 'investments-grid-cell';
-        nameCell.textContent = inv.name;
-        row.appendChild(nameCell);
+        if (error.message.includes('Authentication failed') || error.message.includes('token expired')) {
+            // Token expired, show login
+            handleLogout();
+            showLoginModal();
+        }
+    });
+}
+
+// Render portfolio data
+function renderPortfolioData(data) {
+    if (!data || !data.activos || !Array.isArray(data.activos)) {
+        document.getElementById('portfolio-tbody').innerHTML = 
+            '<tr><td colspan="8" style="text-align:center;">No portfolio data available.</td></tr>';
+        return;
+    }
+    
+    const activos = data.activos;
+    const tbody = document.getElementById('portfolio-tbody');
+    tbody.innerHTML = '';
+    
+    // Calculate totals
+    let totalValue = 0;
+    let totalGain = 0;
+    
+    // Render each asset row
+    activos.forEach(activo => {
+        const row = document.createElement('tr');
         
-        // Purchase Date
-        const purchaseDateCell = document.createElement('div');
-        purchaseDateCell.className = 'investments-grid-cell';
-        purchaseDateCell.textContent = formatDate(inv.purchase_date);
-        row.appendChild(purchaseDateCell);
+        // Symbol
+        const symbolCell = document.createElement('td');
+        symbolCell.textContent = activo.titulo.simbolo;
+        row.appendChild(symbolCell);
         
-        // Purchase Price
-        const purchasePriceCell = document.createElement('div');
-        purchasePriceCell.className = 'investments-grid-cell';
-        purchasePriceCell.textContent = `$${formatNumber(inv.purchase_price, true)}`;
-        row.appendChild(purchasePriceCell);
+        // Description
+        const descCell = document.createElement('td');
+        descCell.textContent = activo.titulo.descripcion;
+        row.appendChild(descCell);
         
         // Quantity
-        const quantityCell = document.createElement('div');
-        quantityCell.className = 'investments-grid-cell';
-        quantityCell.textContent = formatNumber(inv.quantity, false);
+        const quantityCell = document.createElement('td');
+        quantityCell.textContent = activo.cantidad.toLocaleString();
         row.appendChild(quantityCell);
         
-        // Current Price
-        const currentPriceCell = document.createElement('div');
-        currentPriceCell.className = 'investments-grid-cell';
-        currentPriceCell.textContent = `$${formatNumber(inv.current_price || inv.purchase_price, true)}`;
-        row.appendChild(currentPriceCell);
+        // Last Price
+        const priceCell = document.createElement('td');
+        priceCell.textContent = formatCurrency(activo.ultimoPrecio);
+        row.appendChild(priceCell);
         
-        // Value
-        const valueCell = document.createElement('div');
-        valueCell.className = 'investments-grid-cell';
-        valueCell.textContent = `$${formatNumber(inv.total_value, true)}`;
+        // Total Value
+        const valueCell = document.createElement('td');
+        valueCell.textContent = formatCurrency(activo.valorizado);
         row.appendChild(valueCell);
         
+        // Purchase Price
+        const purchaseCell = document.createElement('td');
+        purchaseCell.textContent = formatCurrency(activo.ppc);
+        row.appendChild(purchaseCell);
+        
         // Profit/Loss
-        const profitLossCell = document.createElement('div');
-        profitLossCell.className = `investments-grid-cell ${inv.profit_loss >= 0 ? 'profit' : 'loss'}`;
-        profitLossCell.textContent = `$${formatNumber(inv.profit_loss, true)}`;
-        if (inv.profit_loss > 0) {
-            profitLossCell.textContent = `+${profitLossCell.textContent}`;
-        }
-        row.appendChild(profitLossCell);
+        const plCell = document.createElement('td');
+        plCell.textContent = formatCurrency(activo.gananciaDinero);
+        plCell.className = activo.gananciaDinero >= 0 ? 'profit' : 'loss';
+        row.appendChild(plCell);
         
-        // Actions
-        const actionsCell = document.createElement('div');
-        actionsCell.className = 'investments-grid-cell actions';
+        // Profit/Loss Percentage
+        const plPercentCell = document.createElement('td');
+        plPercentCell.textContent = activo.gananciaPorcentaje.toFixed(2) + '%';
+        plPercentCell.className = activo.gananciaPorcentaje >= 0 ? 'profit' : 'loss';
+        row.appendChild(plPercentCell);
         
-        // Edit button
-        const editButton = document.createElement('button');
-        editButton.className = 'action-button edit';
-        editButton.innerHTML = '✏️';
-        editButton.title = 'Edit';
-        editButton.addEventListener('click', () => openEditInvestmentModal(inv));
-        actionsCell.appendChild(editButton);
+        tbody.appendChild(row);
         
-        // Update price button
-        const updateButton = document.createElement('button');
-        updateButton.className = 'action-button update';
-        updateButton.innerHTML = '💰';
-        updateButton.title = 'Update Price';
-        updateButton.addEventListener('click', () => openUpdatePriceModal(inv));
-        actionsCell.appendChild(updateButton);
-        
-        // Delete button
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'action-button delete';
-        deleteButton.innerHTML = '🗑️';
-        deleteButton.title = 'Delete';
-        deleteButton.addEventListener('click', () => confirmDeleteInvestment(inv.id));
-        actionsCell.appendChild(deleteButton);
-        
-        row.appendChild(actionsCell);
-        
-        gridBody.appendChild(row);
+        // Add to totals
+        totalValue += activo.valorizado;
+        totalGain += activo.gananciaDinero;
     });
+    
+    // Update summary
+    document.getElementById('total-value').innerHTML = `
+        <div style="margin-bottom: 10px;">
+            <strong>Total Value:</strong> ${formatCurrency(totalValue)}
+        </div>
+    `;
+    
+    document.getElementById('total-profit').innerHTML = `
+        <div style="margin-bottom: 10px;">
+            <strong>Total Profit/Loss:</strong> 
+            <span class="${totalGain >= 0 ? 'profit' : 'loss'}">
+                ${formatCurrency(totalGain)}
+            </span>
+        </div>
+    `;
+    
+    document.getElementById('total-assets').innerHTML = `
+        <div style="margin-bottom: 10px;">
+            <strong>Total Assets:</strong> ${activos.length}
+        </div>
+    `;
+    
+    // Update chart
+    updatePortfolioChart(data.activos);
 }
 
-// Update investment summary
-function updateInvestmentSummary(data) {
-    document.getElementById('total-invested').textContent = `$${formatNumber(data.total_invested, true)}`;
-    document.getElementById('total-current-value').textContent = `$${formatNumber(data.total_current_value, true)}`;
-    
-    const profitLossElement = document.getElementById('total-profit-loss');
-    profitLossElement.textContent = `$${formatNumber(Math.abs(data.total_profit_loss), true)}`;
-    
-    if (data.total_profit_loss > 0) {
-        profitLossElement.classList.add('positive');
-        profitLossElement.classList.remove('negative');
-        profitLossElement.textContent = `+${profitLossElement.textContent}`;
-    } else if (data.total_profit_loss < 0) {
-        profitLossElement.classList.add('negative');
-        profitLossElement.classList.remove('positive');
-        profitLossElement.textContent = `-${profitLossElement.textContent}`;
-    } else {
-        profitLossElement.classList.remove('positive', 'negative');
-    }
-    
-    document.getElementById('investment-budget').textContent = `$${formatNumber(data.budget_amount, true)}`;
-}
-
-// Update investment chart
-function updateInvestmentChart(data) {
-    // Check if Chart.js is available
-    if (typeof Chart === 'undefined') {
-        console.error("Chart.js is not loaded. Cannot update investment chart.");
-        return;
-    }
-    
-    const chartCanvas = document.getElementById('investments-chart');
-    if (!chartCanvas) {
-        console.error("Investment chart canvas element not found.");
-        return;
-    }
-    
-    const ctx = chartCanvas.getContext('2d');
-    if (!ctx) {
-        console.error("Could not get 2D context from canvas.");
-        return;
-    }
+// Update portfolio chart
+function updatePortfolioChart(assets) {
+    const chartCanvas = document.getElementById('portfolio-chart');
     
     // Prepare data for chart
-    const investments = data.investments || [];
-    const labels = investments.map(inv => inv.name);
-    const purchaseValues = investments.map(inv => parseFloat((inv.purchase_price * inv.quantity).toFixed(2)));
-    const currentValues = investments.map(inv => parseFloat(inv.total_value.toFixed(2)));
+    const labels = assets.map(asset => asset.titulo.simbolo);
+    const data = assets.map(asset => asset.valorizado);
+    const backgroundColors = [
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 206, 86, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(153, 102, 255, 0.7)',
+        'rgba(255, 159, 64, 0.7)',
+        'rgba(199, 199, 199, 0.7)'
+    ];
     
-    // Destroy existing chart if exists
-    if (investmentChart) {
-        investmentChart.destroy();
+    // Destroy previous chart if it exists
+    if (portfolioChart) {
+        portfolioChart.destroy();
     }
     
     // Create new chart
-    try {
-        investmentChart = new Chart(ctx, {
-            type: 'bar',
+    portfolioChart = new Chart(chartCanvas, {
+        type: 'pie',
             data: {
                 labels: labels,
-                datasets: [
-                    {
-                        label: 'Purchase Value',
-                        data: purchaseValues,
-                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
+            datasets: [{
+                data: data,
+                backgroundColor: backgroundColors.slice(0, assets.length),
+                borderColor: 'white',
                         borderWidth: 1
-                    },
-                    {
-                        label: 'Current Value',
-                        data: currentValues,
-                        backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    }
-                ]
+            }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Value (USD)'
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 15,
+                        font: {
+                            family: 'Courier New',
+                            size: 12
                         }
                     }
                 },
-                plugins: {
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                label += '$' + formatNumber(context.raw, true);
-                                return label;
-                            }
+                            const value = context.raw;
+                            const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${context.label}: ${formatCurrency(value)} (${percentage}%)`;
                         }
                     }
                 }
             }
-        });
-        console.log("Investment chart created successfully");
-    } catch (error) {
-        console.error("Error creating investment chart:", error);
-    }
+        }
+    });
 }
 
-// Open add investment modal
-function openAddInvestmentModal() {
-    // Clear form
-    document.getElementById('investment-id').value = '';
-    document.getElementById('investment-name').value = '';
-    document.getElementById('investment-type').value = 'stock';
-    document.getElementById('investment-purchase-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('investment-purchase-price').value = '';
-    document.getElementById('investment-quantity').value = '';
-    document.getElementById('investment-current-price').value = '';
-    document.getElementById('investment-notes').value = '';
-    
-    // Update modal title
-    document.getElementById('investment-modal-title').textContent = 'Add Investment';
-    
-    // Show modal
-    document.getElementById('investment-modal').style.display = 'block';
-}
-
-// Open edit investment modal
-function openEditInvestmentModal(investment) {
-    // Fill form with investment data
-    document.getElementById('investment-id').value = investment.id;
-    document.getElementById('investment-name').value = investment.name;
-    document.getElementById('investment-type').value = investment.investment_type || 'stock';
-    document.getElementById('investment-purchase-date').value = investment.purchase_date;
-    document.getElementById('investment-purchase-price').value = investment.purchase_price;
-    document.getElementById('investment-quantity').value = investment.quantity;
-    document.getElementById('investment-current-price').value = investment.current_price || investment.purchase_price;
-    document.getElementById('investment-notes').value = investment.notes || '';
-    
-    // Update modal title
-    document.getElementById('investment-modal-title').textContent = 'Edit Investment';
-    
-    // Show modal
-    document.getElementById('investment-modal').style.display = 'block';
-}
-
-// Open update price modal
-function openUpdatePriceModal(investment) {
-    // Fill form with minimal data
-    document.getElementById('investment-id').value = investment.id;
-    document.getElementById('investment-name').value = investment.name;
-    document.getElementById('investment-type').value = investment.investment_type || 'stock';
-    document.getElementById('investment-purchase-date').value = investment.purchase_date;
-    document.getElementById('investment-purchase-price').value = investment.purchase_price;
-    document.getElementById('investment-quantity').value = investment.quantity;
-    document.getElementById('investment-current-price').value = investment.current_price || investment.purchase_price;
-    document.getElementById('investment-notes').value = investment.notes || '';
-    
-    // Update modal title
-    document.getElementById('investment-modal-title').textContent = 'Update Price';
-    
-    // Show modal
-    document.getElementById('investment-modal').style.display = 'block';
-}
-
-// Close investment modal
-function closeInvestmentModal() {
-    document.getElementById('investment-modal').style.display = 'none';
-}
-
-// Save investment
-function saveInvestment(event) {
-    event.preventDefault();
-    
-    const id = document.getElementById('investment-id').value;
-    const investment = {
-        name: document.getElementById('investment-name').value,
-        purchase_date: document.getElementById('investment-purchase-date').value,
-        purchase_price: parseFloat(document.getElementById('investment-purchase-price').value),
-        quantity: parseFloat(document.getElementById('investment-quantity').value),
-        current_price: parseFloat(document.getElementById('investment-current-price').value || document.getElementById('investment-purchase-price').value),
-        investment_type: document.getElementById('investment-type').value,
-        notes: document.getElementById('investment-notes').value
-    };
-    
-    if (id) {
-        // Update existing investment
-        AppStorage.investments.update(id, investment, function(data) {
-            if (data) {
-                closeInvestmentModal();
-                
-                // Invalidate caches to ensure data consistency
-                // Also invalidate expenses cache since we might have updated an expense
-                if (AppStorage.expenses && typeof AppStorage.expenses.invalidateCache === 'function') {
-                    AppStorage.expenses.invalidateCache();
-                }
-                
-                // Also invalidate budget allocations
-                if (AppStorage.budget && typeof AppStorage.budget.invalidateCache === 'function') {
-                    AppStorage.budget.invalidateCache();
-                }
-                
-                fetchInvestments(true); // Force refresh
-            }
-        });
-    } else {
-        // Add new investment
-        AppStorage.investments.add(investment, function(data) {
-            if (data) {
-                closeInvestmentModal();
-                
-                // Show success message
-                const totalAmount = investment.purchase_price * investment.quantity;
-                alert(`Investment added successfully. A corresponding expense of $${formatNumber(totalAmount, true)} has been added to your Investments budget category.`);
-                
-                // Invalidate caches to ensure data consistency
-                // Also invalidate expenses cache since we've added an expense
-                if (AppStorage.expenses && typeof AppStorage.expenses.invalidateCache === 'function') {
-                    AppStorage.expenses.invalidateCache();
-                }
-                
-                // Also invalidate budget allocations
-                if (AppStorage.budget && typeof AppStorage.budget.invalidateCache === 'function') {
-                    AppStorage.budget.invalidateCache();
-                }
-                
-                fetchInvestments(true); // Force refresh
-            }
-        });
-    }
-}
-
-// Confirm delete investment
-function confirmDeleteInvestment(id) {
-    if (confirm('Are you sure you want to delete this investment? This will also remove the corresponding expense from your budget.')) {
-        AppStorage.investments.delete(id, function(data) {
-            if (data) {
-                // Invalidate caches to ensure data consistency
-                // Also invalidate expenses cache since we've removed an expense
-                if (AppStorage.expenses && typeof AppStorage.expenses.invalidateCache === 'function') {
-                    AppStorage.expenses.invalidateCache();
-                }
-                
-                // Also invalidate budget allocations
-                if (AppStorage.budget && typeof AppStorage.budget.invalidateCache === 'function') {
-                    AppStorage.budget.invalidateCache();
-                }
-                
-                fetchInvestments(true); // Force refresh
-            }
-        });
-    }
-}
-
-// Utility function to format date
-function formatDate(dateString) {
-    if (!dateString) return '';
-    
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-        return dateString; // Return as-is if invalid
-    }
-    
-    return date.toLocaleDateString();
-}
-
-// Utility function to format number
-function formatNumber(number, decimals = false) {
-    if (typeof number !== 'number') {
-        return '0.00';
-    }
-    
-    const options = {
-        minimumFractionDigits: decimals ? 2 : 0,
-        maximumFractionDigits: decimals ? 2 : 2
-    };
-    
-    return number.toLocaleString('en-US', options);
+// Format currency
+function formatCurrency(value) {
+    return '$' + parseFloat(value).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 } 
